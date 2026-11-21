@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>视角计算器 · Visual Angle Calculator</title>
+<style>
+  :root{--bg:#f6f8fc;--card:#fff;--line:#e2e8f2;--txt:#1b2733;--muted:#64748b;--accent:#2563eb;--accent2:#0ea5e9}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6}
+  .wrap{max-width:920px;margin:auto;padding:36px 20px 70px}
+  header{text-align:center;margin-bottom:32px}
+  h1{font-size:clamp(26px,5vw,40px);margin-bottom:8px}
+  header p{color:var(--muted);font-size:15px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:18px;box-shadow:0 4px 20px rgba(30,50,90,.05)}
+  .tip{font-size:13px;color:var(--muted);margin-bottom:18px}
+  .tip b{color:var(--accent)}
+  .row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  @media(max-width:720px){.row{grid-template-columns:1fr}}
+  .field label{display:block;font-size:14px;font-weight:600;margin-bottom:8px}
+  .field label span{color:var(--muted);font-weight:400;font-size:12px}
+  .inputline{display:flex;gap:8px}
+  input[type=number]{flex:1;min-width:0;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:16px;color:var(--txt);background:#fff;outline:none;transition:.15s}
+  input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+  input[readonly]{background:#f1f5fb;color:var(--accent);font-weight:600}
+  select{border:1px solid var(--line);border-radius:9px;padding:0 8px;background:#fff;color:var(--txt);font-size:13px;max-width:124px;outline:none}
+  .solve{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+  .solve button{border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:20px;padding:7px 16px;font-size:13px;cursor:pointer;transition:.15s}
+  .solve button.active{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;border-color:transparent}
+  .result{background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1px solid #dbeafe;border-radius:14px;padding:22px;text-align:center;margin-top:8px}
+  .result .big{font-size:clamp(24px,5vw,38px);font-weight:800;color:var(--accent);word-break:break-all}
+  .result .unit{font-size:15px;color:var(--muted);margin-left:6px}
+  .result .cap{font-size:13px;color:var(--muted);margin-top:6px}
+  canvas{width:100%;height:230px;display:block;border-radius:10px;background:linear-gradient(180deg,#f8fafc,#eef2f8);border:1px solid var(--line)}
+  .examples{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .examples button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 15px;font-size:13px;cursor:pointer;color:var(--txt);transition:.15s}
+  .examples button:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}
+  .allunits{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:16px}
+  .u{background:#f8fafc;border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+  .u .k{font-size:11px;color:var(--muted)}
+  .u .v{font-size:15px;font-weight:600;color:var(--txt);word-break:break-all}
+  footer{text-align:center;color:var(--muted);font-size:12px;padding:10px 20px 40px;line-height:2}
+  code{background:#eef2f8;padding:2px 6px;border-radius:5px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>视角计算器</h1>
+    <p>输入任意两个值，自动算出第三个 —— "看起来有多大"可以用角度精确描述</p>
+  </header>
+
+  <div class="panel">
+    <div class="tip">选择要<b>计算哪一项</b>（该项会自动算出，呈蓝色），另外两项随便填：</div>
+    <div class="solve" id="solve">
+      <button data-k="angle" class="active">求「感知角度」</button>
+      <button data-k="size">求「物理尺寸」</button>
+      <button data-k="distance">求「观看距离」</button>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>观看距离 <span>眼睛到物体的距离</span></label>
+        <div class="inputline"><input type="number" id="in-distance" step="any" placeholder="输入数值"><select id="u-distance"></select></div>
+      </div>
+      <div class="field">
+        <label>物理尺寸 <span>物体实际大小</span></label>
+        <div class="inputline"><input type="number" id="in-size" step="any" placeholder="输入数值"><select id="u-size"></select></div>
+      </div>
+      <div class="field">
+        <label>感知角度 <span>看起来占多少度</span></label>
+        <div class="inputline"><input type="number" id="in-angle" step="any" placeholder="输入数值"><select id="u-angle"></select></div>
+      </div>
+    </div>
+
+    <div class="result">
+      <div><span class="big" id="resultVal">—</span><span class="unit" id="resultUnit"></span></div>
+      <div class="cap" id="resultCap">结果会显示在这里</div>
+    </div>
+    <div class="allunits" id="allunits"></div>
+  </div>
+
+  <div class="panel">
+    <div class="tip" style="margin-bottom:12px">示意：眼睛、物体与视角的关系</div>
+    <canvas id="viz" width="880" height="230"></canvas>
+  </div>
+
+  <div class="panel">
+    <div class="tip" style="margin-bottom:12px">点一下看真实例子：</div>
+    <div class="examples" id="examples">
+      <button data-p="moon">满月有多小？（0.5°）</button>
+      <button data-p="thumb">伸直手臂的拇指（2°）</button>
+      <button data-p="eye">视力极限（1 角分）</button>
+      <button data-p="screen">1 米看 24 寸显示器</button>
+    </div>
+  </div>
+
+  <footer>
+    核心公式（弧度制）：<code>θ = 2 × arctan(尺寸 ÷ (2 × 距离))</code><br>
+    参考：1° = 60 角分 = 3600 角秒 · 满月与太阳都约 0.5° · 人眼分辨极限约 1 角分<br>
+    纯前端单页应用 · 无需服务器 · 可免费托管在 GitHub Pages
+  </footer>
+</div>
+
+<script>
+(function(){
+'use strict';
+const LEN={
+  millimeters:.001, centimeters:.01, meters:1, kilometers:1000,
+  inches:.0254, feet:.3048, yards:.9144, miles:1609.344,
+  lightyears:9.4607e15, points:.0254/72, picas:.0254/6
+};
+const ANG={
+  arcseconds:Math.PI/648000, arcminutes:Math.PI/10800,
+  degrees:Math.PI/180, radians:1,
+  dmm:.001, refpixels:.000372
+};
+const LEN_LABEL={millimeters:'毫米 mm',centimeters:'厘米 cm',meters:'米 m',kilometers:'千米 km',inches:'英寸 in',feet:'英尺 ft',yards:'码 yd',miles:'英里 mi',lightyears:'光年 ly',points:'点 pt',picas:'皮卡 pc'};
+const ANG_LABEL={arcseconds:'角秒 ″',arcminutes:'角分 ′',degrees:'度 °',radians:'弧度 rad',dmm:'dmm (1mm@1m)',refpixels:'参考像素'};
+
+let solveFor='angle';
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+
+function fillSelect(el,dict,labels){
+  for(const k in dict){
+    const o=document.createElement('option');o.value=k;o.textContent=labels[k];el.appendChild(o);
+  }
+}
+fillSelect($('u-distance'),LEN,LEN_LABEL);
+fillSelect($('u-size'),LEN,LEN_LABEL);
+fillSelect($('u-angle'),ANG,ANG_LABEL);
+
+function setUnit(k,u){$('u-'+k).value=u;}
+function val(k){const v=parseFloat($('in-'+k).value);return isFinite(v)?v:null;}
+function toBase(k,v){return k==='angle'?v*ANG[$('u-'+k).value]:v*LEN[$('u-'+k).value];}
+function fromBase(k,v){return k==='angle'?v/ANG[$('u-'+k).value]:v/LEN[$('u-'+k).value];}
+function fmt(v){
+  if(v===null||!isFinite(v))return '—';
+  const a=Math.abs(v);
+  if(a!==0&&(a<1e-4||a>=1e7))return v.toExponential(3);
+  return String(parseFloat(v.toPrecision(6)));
+}
+
+function calc(){
+  const D=val('distance'),S=val('size'),A=val('angle');
+  const target=solveFor;
+  let result=null;
+  if(target==='angle'&&D!==null&&S!==null&&D>0&&S>0){
+    const dB=toBase('distance',D),sB=toBase('size',S);
+    result=2*Math.atan(sB/(2*dB));
+  }else if(target==='size'&&D!==null&&A!==null&&D>0&&A>0){
+    const dB=toBase('distance',D),aB=toBase('angle',A);
+    if(aB<Math.PI)result=2*dB*Math.tan(aB/2);
+  }else if(target==='distance'&&S!==null&&A!==null&&S>0&&A>0){
+    const sB=toBase('size',S),aB=toBase('angle',A);
+    if(aB<Math.PI)result=sB/(2*Math.tan(aB/2));
+  }
+  if(result!==null){
+    $('in-'+target).value=fmt(fromBase(target,result));
+  }else{
+    $('in-'+target).value='';
+  }
+  update(target,result);
+}
+
+function update(target,baseResult){
+  // 高亮当前求解项
+  ['distance','size','angle'].forEach(k=>$('in-'+k).readOnly=(k===target));
+  // 主结果
+  const labels={distance:LEN_LABEL,size:LEN_LABEL,angle:ANG_LABEL};
+  const unit=labels[target][$('u-'+target).value];
+  const shown=$('in-'+target).value;
+  $('resultVal').textContent=shown||'—';
+  $('resultUnit').textContent=unit;
+  $('resultCap').textContent=shown?'已算出 '+({distance:'观看距离',size:'物理尺寸',angle:'感知角度'})[target]:'填好另外两项就会自动计算';
+  // 全单位展示
+  let html='';
+  const dict=target==='angle'?ANG:LEN, lab=labels[target];
+  if(baseResult!==null){
+    for(const k in dict){
+      html+='<div class="u"><div class="k">'+lab[k]+'</div><div class="v">'+fmt(baseResult/dict[k])+'</div></div>';
+    }
+  }
+  $('allunits').innerHTML=html;
+  draw();
+}
+
+function draw(){
+  const c=$('viz'),x=c.getContext('2d'),W=c.width,H=c.height;
+  x.clearRect(0,0,W,H);
+  const D=val('distance'),S=val('size'),A=val('angle');
+  if(D===null||S===null||A===null){return;}
+  const dB=toBase('distance',D),sB=toBase('size',S),aB=toBase('angle',A);
+  if(!(dB>0&&sB>0&&aB>0&&aB<Math.PI))return;
+  const eyeX=55,cy=H/2,objX=W-70;
+  const h=clamp(Math.tan(aB/2)*700,10,150);
+  // 视线水平线
+  x.strokeStyle='#cbd5e1';x.setLineDash([5,5]);x.lineWidth=1;
+  x.beginPath();x.moveTo(eyeX,cy);x.lineTo(objX,cy);x.stroke();x.setLineDash([]);
+  // 视线夹角
+  x.fillStyle='rgba(37,99,235,.08)';
+  x.beginPath();x.moveTo(eyeX,cy);x.lineTo(objX,cy-h/2);x.lineTo(objX,cy+h/2);x.closePath();x.fill();
+  x.strokeStyle='#2563eb';x.lineWidth=1.5;
+  x.beginPath();x.moveTo(eyeX,cy);x.lineTo(objX,cy-h/2);x.moveTo(eyeX,cy);x.lineTo(objX,cy+h/2);x.stroke();
+  // 眼睛
+  x.fillStyle='#1e293b';x.beginPath();x.arc(eyeX,cy,7,0,Math.PI*2);x.fill();
+  x.strokeStyle='#1e293b';x.lineWidth=2;x.beginPath();x.arc(eyeX,cy,15,0,Math.PI*2);x.stroke();
+  x.fillStyle='#64748b';x.font='13px sans-serif';x.fillText('观察者',eyeX-22,cy+34);
+  // 物体
+  const g=x.createLinearGradient(0,cy-h/2,0,cy+h/2);
+  g.addColorStop(0,'#0ea5e9');g.addColorStop(1,'#2563eb');
+  x.fillStyle=g;x.fillRect(objX-9,cy-h/2,18,h);
+  x.fillStyle='#475569';x.font='13px sans-serif';x.textAlign='center';
+  x.fillText('物体',objX,cy+h/2+22);x.textAlign='left';
+  // 标注
+  x.fillStyle='#2563eb';x.font='bold 14px sans-serif';
+  x.fillText('θ = '+fmt(fromBase('angle',aB))+' '+ANG_LABEL[$('u-angle').value],W/2-60,cy-h/2-12);
+  x.fillStyle='#64748b';x.font='13px sans-serif';
+  x.fillText('距离 = '+fmt(D)+' '+LEN_LABEL[$('u-distance').value],W/2-40,cy+22);
+}
+
+$('solve').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  solveFor=b.dataset.k;
+  document.querySelectorAll('#solve button').forEach(x=>x.classList.toggle('active',x===b));
+  calc();
+});
+['distance','size','angle'].forEach(k=>{
+  $('in-'+k).addEventListener('input',calc);
+  $('u-'+k).addEventListener('change',calc);
+});
+
+const presets={
+  moon:()=>{solveFor='angle';setUnit('distance','kilometers');setUnit('size','kilometers');setUnit('angle','degrees');
+    $('in-distance').value=384400;$('in-size').value=3474;},
+  thumb:()=>{solveFor='size';setUnit('distance','meters');setUnit('size','centimeters');setUnit('angle','degrees');
+    $('in-distance').value=.7;$('in-angle').value=2;},
+  eye:()=>{solveFor='size';setUnit('distance','meters');setUnit('size','millimeters');setUnit('angle','arcminutes');
+    $('in-distance').value=1;$('in-angle').value=1;},
+  screen:()=>{solveFor='angle';setUnit('distance','meters');setUnit('size','inches');setUnit('angle','degrees');
+    $('in-distance').value=1;$('in-size').value=24;}
+};
+$('examples').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  presets[b.dataset.p]();
+  document.querySelectorAll('#solve button').forEach(x=>x.classList.toggle('active',x.dataset.k===solveFor));
+  calc();
+});
+
+// 初始：复刻用户给的链接 500mm + 60角分 求尺寸
+setUnit('distance','millimeters');setUnit('size','millimeters');setUnit('angle','arcminutes');
+$('in-distance').value=500;$('in-angle').value=60;
+solveFor='size';
+document.querySelectorAll('#solve button').forEach(x=>x.classList.toggle('active',x.dataset.k==='size'));
+calc();
+})();
+</script>
+</body>
+</html>
