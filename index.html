@@ -5,254 +5,628 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>视角计算器 · Visual Angle Calculator</title>
 <style>
-  :root{--bg:#f6f8fc;--card:#fff;--line:#e2e8f2;--txt:#1b2733;--muted:#64748b;--accent:#2563eb;--accent2:#0ea5e9}
+  :root{--bg:#f6f8fc;--card:#fff;--line:#e2e8f2;--txt:#1b2733;--muted:#64748b;--accent:#2563eb;--accent2:#0ea5e9;--lock:#f59e0b}
   *{margin:0;padding:0;box-sizing:border-box}
   body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6}
-  .wrap{max-width:920px;margin:auto;padding:36px 20px 70px}
-  header{text-align:center;margin-bottom:32px}
-  h1{font-size:clamp(26px,5vw,40px);margin-bottom:8px}
-  header p{color:var(--muted);font-size:15px}
-  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:18px;box-shadow:0 4px 20px rgba(30,50,90,.05)}
-  .tip{font-size:13px;color:var(--muted);margin-bottom:18px}
-  .tip b{color:var(--accent)}
-  .row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
-  @media(max-width:720px){.row{grid-template-columns:1fr}}
-  .field label{display:block;font-size:14px;font-weight:600;margin-bottom:8px}
-  .field label span{color:var(--muted);font-weight:400;font-size:12px}
-  .inputline{display:flex;gap:8px}
-  input[type=number]{flex:1;min-width:0;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:16px;color:var(--txt);background:#fff;outline:none;transition:.15s}
+  .stage{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;max-width:1340px;margin:auto;padding:26px 20px 50px;align-items:start}
+  @media(max-width:1040px){.stage{grid-template-columns:1fr}}
+  header{grid-column:1/-1;text-align:center;margin-bottom:4px}
+  h1{font-size:clamp(23px,4vw,34px);margin-bottom:6px}
+  header p{color:var(--muted);font-size:13px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:16px;margin-bottom:14px;box-shadow:0 4px 18px rgba(30,50,90,.05)}
+  .sec-title{font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .sec-title .tag2{font-size:11px;color:var(--muted);font-weight:400}
+  .vizwrap{position:relative;width:100%;height:360px;background:#fbfcfe;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .vizwrap svg{display:block;width:100%;height:100%}
+  .row{display:flex;gap:10px;flex-wrap:nowrap}
+  @media(max-width:920px){.row{flex-wrap:wrap}}
+  .field{flex:1;min-width:190px;border:1px solid var(--line);border-radius:9px;padding:10px;background:#fbfdff;transition:.2s}
+  .field.is-out{border-color:var(--accent);background:#f0f7ff}
+  .field.is-locked{border-color:#fcd34d;background:#fffbeb}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:7px}
+  .title{font-size:12px;font-weight:700;white-space:nowrap}
+  .title small{display:block;font-size:10px;color:var(--muted);font-weight:400}
+  .lock{border:1px solid var(--line);background:#fff;color:var(--muted);width:27px;height:27px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s}
+  .lock:hover{border-color:var(--lock);color:var(--lock)}
+  .lock.is-locked{background:#fef3c7;border-color:var(--lock);color:#b45309}
+  .lock .ic-unlock{display:none}
+  .lock.is-locked .ic-lock{display:none}
+  .lock.is-locked .ic-unlock{display:block}
+  .inputline{display:flex;gap:4px}
+  input[type=number]{flex:1;min-width:0;border:1px solid var(--line);border-radius:6px;padding:7px;font-size:13px;color:var(--txt);background:#fff;outline:none;transition:.15s}
   input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
-  input[readonly]{background:#f1f5fb;color:var(--accent);font-weight:600}
-  select{border:1px solid var(--line);border-radius:9px;padding:0 8px;background:#fff;color:var(--txt);font-size:13px;max-width:124px;outline:none}
-  .solve{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
-  .solve button{border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:20px;padding:7px 16px;font-size:13px;cursor:pointer;transition:.15s}
-  .solve button.active{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;border-color:transparent}
-  .result{background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1px solid #dbeafe;border-radius:14px;padding:22px;text-align:center;margin-top:8px}
-  .result .big{font-size:clamp(24px,5vw,38px);font-weight:800;color:var(--accent);word-break:break-all}
-  .result .unit{font-size:15px;color:var(--muted);margin-left:6px}
-  .result .cap{font-size:13px;color:var(--muted);margin-top:6px}
-  canvas{width:100%;height:230px;display:block;border-radius:10px;background:linear-gradient(180deg,#f8fafc,#eef2f8);border:1px solid var(--line)}
-  .examples{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
-  .examples button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 15px;font-size:13px;cursor:pointer;color:var(--txt);transition:.15s}
-  .examples button:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}
-  .allunits{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:16px}
-  .u{background:#f8fafc;border:1px solid var(--line);border-radius:9px;padding:10px 12px}
-  .u .k{font-size:11px;color:var(--muted)}
-  .u .v{font-size:15px;font-weight:600;color:var(--txt);word-break:break-all}
-  footer{text-align:center;color:var(--muted);font-size:12px;padding:10px 20px 40px;line-height:2}
-  code{background:#eef2f8;padding:2px 6px;border-radius:5px;font-size:12px}
+  input[readonly]{background:#eaf2ff;color:var(--accent);font-weight:700;border-color:#bfdbfe}
+  select{border:1px solid var(--line);border-radius:6px;padding:0 4px;background:#fff;color:var(--txt);font-size:11px;max-width:92px;outline:none}
+  .slider{width:100%;margin-top:7px;accent-color:var(--accent);cursor:pointer}
+  .slider:disabled{opacity:.4;cursor:not-allowed}
+  .status{font-size:10px;margin-top:4px;font-weight:600}
+  .status.out{color:var(--accent)}.status.in{color:var(--muted)}.status.lock{color:#b45309}
+  .alts{margin-top:3px;font-size:10px;color:var(--muted);line-height:1.7;word-break:break-word}
+  .toolbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px;align-items:center}
+  .btn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 10px;font-size:11px;color:var(--txt);cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;border-color:transparent}
+  .badge{font-size:11px;color:var(--muted);margin-left:auto}
+  .sexpick{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px 9px;cursor:pointer;background:#fff}
+  .sexpick input{accent-color:var(--accent);margin:0 2px 0 6px;cursor:pointer}
+  .sexpick input:first-child{margin-left:0}
+  .mini{font-size:11px;color:var(--muted);margin-bottom:5px}
+  .monitor{width:100%;aspect-ratio:16/10;background:linear-gradient(160deg,#1e293b,#0f172a);border:6px solid #334155;border-radius:10px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:8px 0 12px}
+  .monitor::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px);pointer-events:none}
+  .monitor-box{background:rgba(96,165,250,.22);border:1px solid #60a5fa;border-radius:3px;transition:.15s}
+  .kv{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:7px 0;border-bottom:1px dashed var(--line)}
+  .kv:last-child{border-bottom:0}
+  .kv .k{color:var(--muted)}
+  .kv .v{font-weight:700;text-align:right;word-break:break-all}
+  .rinput{display:flex;gap:6px;margin-bottom:4px}
+  .rinput input,.rinput select{flex:1;min-width:0;border:1px solid var(--line);border-radius:7px;padding:7px 8px;font-size:12px;background:#fff;color:var(--txt);max-width:none}
+  .examples{display:flex;gap:7px;flex-wrap:wrap;margin-top:13px}
+  .examples button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 11px;font-size:11px;cursor:pointer;color:var(--txt);transition:.15s}
+  .examples button:hover{border-color:var(--accent);color:var(--accent)}
+  .note{font-size:11px;color:var(--muted);line-height:1.8;margin-top:10px}
+  footer{grid-column:1/-1;text-align:center;color:var(--muted);font-size:11px;padding:4px 20px;line-height:1.9}
+  code{background:#eef2f8;padding:2px 5px;border-radius:4px}
+
+  /* ---- 草图样式：一体输入控件 ---- */
+  .vizpanel{padding:14px 16px 16px}
+  .sexbox{display:flex;align-items:center;gap:8px}
+  .sexbox .sexpick{padding:4px 8px}
+  .fixedh{font-size:11px;color:var(--muted);white-space:nowrap}
+  .fixedh b{color:var(--txt)}
+  .ctrlrow{display:flex;align-items:stretch;gap:0;margin-top:14px}
+  .ctrl{flex:1;min-width:0;position:relative;padding-top:22px}
+  .ctrl .clab{position:absolute;top:0;left:2px;font-size:12px;font-weight:700;color:var(--txt)}
+  .ctrl .clab .hint{font-size:10px;color:var(--muted);font-weight:400;margin-left:5px}
+  .cell{display:flex;align-items:center;border:1.5px solid var(--line);border-radius:9px;background:#fff;height:46px;overflow:hidden;transition:.18s;cursor:ew-resize}
+  .cell:hover{border-color:#94a3b8;box-shadow:0 2px 8px rgba(30,50,90,.08)}
+  .cell.is-out{border-color:var(--accent);background:#f0f7ff;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+  .cell.is-locked{border-color:#f0b429;background:#fffbeb}
+  .cell .ico{width:34px;flex-shrink:0;text-align:center;font-size:17px;color:var(--muted);user-select:none}
+  .cell.is-out .ico{color:var(--accent)}
+  .cell input[type=number]{flex:1;min-width:0;border:0;background:transparent;font-size:17px;font-weight:700;text-align:center;padding:0;color:var(--txt);border-radius:0;box-shadow:none!important}
+  .cell input[type=number]:focus{background:transparent}
+  .cell select{border:0;border-left:1px solid var(--line);height:100%;width:74px;flex-shrink:0;border-radius:0;font-size:12px;background:#fbfcfe;padding:0 2px}
+  .ulock{border:0;background:transparent;color:#cbd5e1;font-size:13px;cursor:pointer;padding:0 3px;line-height:1;transition:.15s;margin-left:2px;vertical-align:1px}
+  .ulock:hover{color:#f0b429}
+  .ulock.on{color:#d97706;text-shadow:0 0 6px rgba(245,158,11,.5)}
+  .dragbar{margin-top:8px;font-size:10px;color:var(--muted);text-align:center}
+  .dragbar b{color:var(--accent)}
+  /* ---- 动画/结论标注 ---- */
+  #viz line,#viz polygon,#viz path,#person{transition:none}
+  .phaseTag{position:absolute;top:10px;left:12px;font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px;transition:.3s;pointer-events:none}
+  .phaseTag. proc{background:rgba(245,158,11,.14);color:#b45309}
+  .phaseTag.result{background:rgba(37,99,235,.13);color:#1d4ed8}
+  .concl{position:absolute;right:12px;bottom:10px;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:11px;color:var(--txt);box-shadow:0 2px 10px rgba(30,50,90,.08);opacity:0;transform:translateY(4px);transition:.35s;pointer-events:none}
+  .concl.show{opacity:1;transform:none}
+  .concl b{color:var(--accent)}
+
+  /* ---- 顶部电脑信息条 ---- */
+  .pcbar{grid-column:1/-1;margin-bottom:0}
+  .pcgrid{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+  .pcgrp{border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:#fbfdff;min-width:0}
+  .pcgrp .glab{font-size:11px;font-weight:700;color:var(--txt);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+  .pcgrp .glab .gsub{font-weight:400;color:var(--muted);font-size:10px}
+  .pcinp{display:flex;align-items:center;gap:4px}
+  .pcinp input{width:70px;border:1px solid var(--line);border-radius:6px;padding:6px 5px;font-size:13px;text-align:center;color:var(--txt);background:#fff;outline:none}
+  .pcinp input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+  .pcinp .x{color:var(--muted);font-size:12px}
+  .pcinp select{border:1px solid var(--line);border-radius:6px;padding:6px 4px;font-size:12px;background:#fff;color:var(--txt);max-width:none}
+  .pcres{flex:1;min-width:240px;border:1px solid var(--line);border-radius:9px;padding:9px 12px;background:linear-gradient(135deg,#eff6ff,#f0f9ff)}
+  .pcres .glab{font-size:11px;font-weight:700;margin-bottom:6px}
+  .pcres .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .pcres .cell2{background:#fff;border:1px solid #dbeafe;border-radius:7px;padding:6px 7px}
+  .pcres .cell2 .k{font-size:10px;color:var(--muted);line-height:1.3}
+  .pcres .cell2 .v{font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap}
+  .pcres .scale-line{font-size:11px;margin-top:7px;color:var(--muted)}
+  .pcres .scale-line b{color:var(--txt)}
+  .pcres .warn{font-size:10px;color:#b45309;margin-top:5px;display:none}
+  .pcres .warn.show{display:block}
+
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="stage">
   <header>
     <h1>视角计算器</h1>
-    <p>输入任意两个值，自动算出第三个 —— "看起来有多大"可以用角度精确描述</p>
+    <p>调节距离 / 尺寸 / 视角，右侧实时展示相同视角下的屏幕效果</p>
   </header>
 
-  <div class="panel">
-    <div class="tip">选择要<b>计算哪一项</b>（该项会自动算出，呈蓝色），另外两项随便填：</div>
-    <div class="solve" id="solve">
-      <button data-k="angle" class="active">求「感知角度」</button>
-      <button data-k="size">求「物理尺寸」</button>
-      <button data-k="distance">求「观看距离」</button>
-    </div>
-    <div class="row">
-      <div class="field">
-        <label>观看距离 <span>眼睛到物体的距离</span></label>
-        <div class="inputline"><input type="number" id="in-distance" step="any" placeholder="输入数值"><select id="u-distance"></select></div>
+  <div class="panel pcbar">
+    <div class="sec-title">我的电脑屏幕 <span class="tag2">选预设机型一键填入，或自定义 · 算出每个像素的绝对物理尺寸</span></div>
+    <div class="pcgrid">
+      <div class="pcgrp">
+        <div class="glab">机型预设</div>
+        <div class="pcinp"><select id="pc-model" style="width:190px">
+          <option value="mbp2017">MacBook Pro 2017 (13")</option>
+          <option value="mbp2017_15">MacBook Pro 2017 (15")</option>
+          <option value="mba2020">MacBook Air 2020 (13")</option>
+          <option value="imac24">iMac 24" 4.5K</option>
+          <option value="custom">自定义</option>
+        </select></div>
       </div>
-      <div class="field">
-        <label>物理尺寸 <span>物体实际大小</span></label>
-        <div class="inputline"><input type="number" id="in-size" step="any" placeholder="输入数值"><select id="u-size"></select></div>
+      <div class="pcgrp">
+        <div class="glab">物理分辨率 <span class="gsub">实际像素</span></div>
+        <div class="pcinp"><input type="number" id="pc-pw" value="2560" min="1"><span class="x">×</span><input type="number" id="pc-ph" value="1600" min="1"></div>
       </div>
-      <div class="field">
-        <label>感知角度 <span>看起来占多少度</span></label>
-        <div class="inputline"><input type="number" id="in-angle" step="any" placeholder="输入数值"><select id="u-angle"></select></div>
+      <div class="pcgrp">
+        <div class="glab">逻辑分辨率 <span class="gsub">系统显示</span></div>
+        <div class="pcinp"><input type="number" id="pc-lw" value="1280" min="1"><span class="x">×</span><input type="number" id="pc-lh" value="800" min="1"></div>
+      </div>
+      <div class="pcgrp">
+        <div class="glab">倍率</div>
+        <div class="pcinp"><select id="pc-dpr"><option value="1">1x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2" selected>2x</option><option value="3">3x</option></select></div>
+      </div>
+      <div class="pcgrp">
+        <div class="glab">物理尺寸 <span class="gsub">对角线</span></div>
+        <div class="pcinp"><input type="number" id="pc-inch" value="13.3" min="1" step="0.1"><span class="x">英寸</span></div>
+      </div>
+      <div class="pcgrp">
+        <div class="glab">物理尺寸 <span class="gsub">宽 × 高 cm</span></div>
+        <div class="pcinp"><input type="number" id="pc-cw" value="28.9" min="1" step="0.1"><span class="x">×</span><input type="number" id="pc-ch" value="18.1" min="1" step="0.1"></div>
       </div>
     </div>
-
-    <div class="result">
-      <div><span class="big" id="resultVal">—</span><span class="unit" id="resultUnit"></span></div>
-      <div class="cap" id="resultCap">结果会显示在这里</div>
+    <div class="pcres" style="margin-top:12px">
+      <div class="glab">像素的绝对物理尺寸 <span class="gsub" style="font-weight:400;color:var(--muted)">按当前宽高比自动换算</span></div>
+      <div class="grid3">
+        <div class="cell2"><div class="k">物理像素 1px（实际发光点）</div><div class="v" id="pc-r1">—</div></div>
+        <div class="cell2"><div class="k">逻辑像素 1px（系统/CSS 点）</div><div class="v" id="pc-r2">—</div></div>
+        <div class="cell2"><div class="k">1 逻辑点 = 几个物理像素</div><div class="v" id="pc-r3">—</div></div>
+      </div>
+      <div class="scale-line" id="pc-line">屏幕物理尺寸 — · PPI —</div>
+      <div class="warn" id="pc-warn">提示：倍率与「物理分辨率 ÷ 逻辑分辨率」不一致，已按你填的物理分辨率与物理尺寸计算。</div>
     </div>
-    <div class="allunits" id="allunits"></div>
   </div>
 
-  <div class="panel">
-    <div class="tip" style="margin-bottom:12px">示意：眼睛、物体与视角的关系</div>
-    <canvas id="viz" width="880" height="230"></canvas>
-  </div>
+  <div class="left">
+    <div class="panel vizpanel">
+      <div class="sec-title">视角示意图 <span class="tag2">人物身高/距离/物体高度 共用比例尺 · 射线自眼睛出发 · 视角真实张开</span></div>
+      <div class="vizwrap">
+        <div class="phaseTag result" id="phaseTag">结论视图</div>
+        <div class="concl" id="concl"></div>
+        <svg id="viz" viewBox="0 0 760 380" preserveAspectRatio="xMidYMid meet" role="img" aria-label="视角示意图">
+          <defs>
+            <marker id="ar-red" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L6,3 L0,6 z" fill="#ef4444"/></marker>
+            <marker id="ar-blue" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0 L6,3 L0,6 z" fill="#2563eb"/></marker>
+            <clipPath id="viz-clip"><rect x="0" y="0" width="760" height="380"/></clipPath>
+          </defs>
+          <g clip-path="url(#viz-clip)">
+            <polygon id="viz-cone" points="" fill="rgba(16,185,129,.08)"/>
+            <line id="viz-green-top" x1="0" y1="0" x2="0" y2="0" stroke="#16a34a" stroke-width="1" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/>
+            <line id="viz-green-bot" x1="0" y1="0" x2="0" y2="0" stroke="#16a34a" stroke-width="1" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/>
+            <line id="viz-blue" x1="0" y1="0" x2="0" y2="0" stroke="#2563eb" stroke-width="1" vector-effect="non-scaling-stroke" marker-start="url(#ar-blue)" marker-end="url(#ar-blue)"/>
+            <line id="viz-red" x1="150" y1="190" x2="630" y2="190" stroke="#ef4444" stroke-width="1" vector-effect="non-scaling-stroke" marker-end="url(#ar-red)"/>
+            <path id="viz-arc" d="" fill="none" stroke="#16a34a" stroke-width="1" vector-effect="non-scaling-stroke"/>
+            <g id="person" transform="translate(0,0) scale(0.3)">
+              <path id="person-path" d="M 80.3,162.2 C 80,164.4 79,166.9 77.8,170.8 C 76.6,174.7 74,180.8 72.9,185.6 C 71.8,190.4 70.9,195.8 71.2,199.6 C 71.5,203.4 73.3,205.5 74.5,208.2 C 75.7,211 77.7,213.4 78.6,216 C 79.5,218.6 79.8,221.1 79.8,223.9 C 79.9,226.6 79.2,229.3 79,232.5 C 78.9,235.7 78.9,240.1 79,243.2 C 79.2,246.3 79.6,248.9 79.8,251 C 80.1,253.1 80.4,253.7 80.7,255.9 C 80.9,258.1 81.5,260.5 81.5,264.2 C 81.5,267.8 81.2,273.6 80.7,277.7 C 80.1,281.8 78.9,286.2 78.2,288.8 C 77.5,291.4 77,292.1 76.6,293.4 C 76.1,294.6 76,295.2 75.7,296.2 C 75.5,297.3 75.2,297.8 74.9,299.5 C 74.6,301.2 74.2,303.6 74.1,306.5 C 74,309.5 74,314.2 74.1,317.2 C 74.2,320.2 74.6,322.7 74.9,324.6 C 75.2,326.5 75.5,327.1 75.7,328.7 C 76,330.3 76.3,332.1 76.6,334.1 C 76.8,336.1 77.1,337.8 77.4,340.6 C 77.7,343.5 78.1,346.7 78.2,350.9 C 78.3,355.2 78.1,361.6 77.8,366.1 C 77.4,370.7 76.3,375 76.1,378.1 C 76,381.2 75.9,383 76.8,384.9 C 77.6,386.7 79.7,388.2 81.3,389 C 82.9,389.8 84.8,389.6 86.4,389.6 C 88,389.6 89.4,388.9 91,388.8 C 92.5,388.6 93.6,388.6 95.9,388.8 C 98.2,388.9 101.2,389.5 104.9,389.6 C 108.6,389.7 114.5,389.7 118.1,389.6 C 121.7,389.5 124.4,389.1 126.3,388.8 C 128.3,388.5 128.8,388.3 129.8,387.7 C 130.8,387.2 132.2,386.4 132.3,385.7 C 132.4,384.9 132.1,384.2 130.2,383.2 C 128.3,382.3 124.5,381.6 120.8,379.9 C 117,378.3 111.2,375.7 107.6,373.3 C 104,370.9 100.9,367.7 99,365.5 C 97.1,363.4 96.9,362.3 96.3,360.4 C 95.7,358.5 95.6,356.8 95.5,354.2 C 95.3,351.7 95.3,347.9 95.5,345.2 C 95.6,342.4 96,340 96.3,337.8 C 96.6,335.6 96.8,333.9 97.1,332 C 97.4,330.2 97.7,328.4 97.9,326.7 C 98.2,325 98.5,323.8 98.8,321.7 C 99,319.7 99.3,317.2 99.6,314.3 C 99.9,311.5 100.1,307.3 100.4,304.5 C 100.7,301.6 100.9,299.5 101.2,297.5 C 101.6,295.4 101.9,294 102.5,292.1 C 103.1,290.3 104.1,288.1 104.9,286.4 C 105.8,284.7 106.8,283.2 107.4,281.8 C 108,280.5 108.3,279.6 108.6,278.1 C 109,276.6 109.1,275.1 109.5,272.8 C 109.8,270.5 110.2,266.8 110.7,264.2 C 111.2,261.5 111.9,258.6 112.3,256.8 C 112.8,254.9 113.2,254.1 113.6,253.1 C 113.9,252 114.1,251.2 114.4,250.2 C 114.7,249.1 114.9,248 115.2,246.9 C 115.5,245.8 115.8,244.7 116,243.6 C 116.3,242.5 116.6,241.3 116.9,240.3 C 117.1,239.3 117.4,238.3 117.7,237.4 C 117.9,236.6 118,235.7 118.3,235.2 C 118.6,234.6 119,234.4 119.5,234.3 C 120.1,234.3 121,234.8 121.6,234.8 C 122.2,234.7 122.8,234.6 123.2,233.9 C 123.7,233.2 123.9,231.8 124.3,230.4 C 124.6,229 125.1,227.1 125.5,225.5 C 125.9,223.9 126.6,222.1 126.7,220.6 C 126.9,219 126.6,217.3 126.3,216 C 126,214.7 125.6,213.9 125.1,212.7 C 124.6,211.6 124.2,210.6 123.4,209 C 122.7,207.5 121.5,205.1 120.6,203.3 C 119.7,201.4 118.7,199.7 118.1,197.9 C 117.5,196.2 117.1,194.8 116.9,193 C 116.7,191.2 116.7,188.9 116.9,187.3 C 117,185.6 117.4,184.2 117.7,183.1 C 118,182 118.2,181.6 118.5,180.7 C 118.8,179.7 119.1,178.6 119.3,177.4 C 119.6,176.1 119.9,175.2 120.2,173.3 C 120.4,171.3 120.7,168.9 121,165.9 C 121.2,162.8 121.5,158.8 121.8,155.2 C 122.1,151.5 122.5,147.8 122.6,144.1 C 122.8,140.3 122.8,135.7 122.6,132.6 C 122.5,129.4 121.9,127.1 121.8,125.2 C 121.7,123.2 121.9,122.5 122.2,121 C 122.6,119.6 123.5,117.8 123.9,116.5 C 124.2,115.2 124.3,114.3 124.3,113.2 C 124.2,112.2 124.1,112.3 123.4,110.3 C 122.8,108.4 121.9,105.5 120.2,101.7 C 118.4,97.9 115,91.4 112.7,87.3 C 110.5,83.3 107.7,80 106.6,77.4 C 105.5,74.9 105.8,74 106.2,72.1 C 106.5,70.2 107.6,67.7 108.6,65.9 C 109.6,64.1 110.7,62.4 112.1,61.2 C 113.6,60 115.8,60 117.3,58.9 C 118.8,57.8 120.2,56.5 121.2,54.6 C 122.2,52.7 122.7,49.4 123.4,47.4 C 124.2,45.4 125.2,43.8 125.5,42.5 C 125.8,41.2 125.6,40.8 125.1,39.6 C 124.6,38.4 123.4,36.9 122.6,35.1 C 121.8,33.2 121,30.8 120.2,28.5 C 119.3,26.2 118.5,23.6 117.7,21.5 C 116.8,19.4 116.1,17.4 115,16 C 113.9,14.5 112.5,13.5 111.3,12.7 C 110.1,11.9 109.2,11.6 107.8,11.2 C 106.5,10.9 105.1,10.5 103.3,10.4 C 101.4,10.3 98.7,10.2 96.7,10.4 C 94.7,10.6 93.2,10.9 91.4,11.6 C 89.5,12.4 87.6,13.4 85.8,14.7 C 84,16.1 81.7,18.2 80.5,19.7 C 79.2,21.1 78.7,22.3 78.2,23.6 C 77.7,24.8 77.2,25.2 77.4,27.3 C 77.5,29.3 78.1,32.3 79,35.9 C 80,39.5 82.2,45 83.1,49.1 C 84,53.2 84.7,57.4 84.4,60.6 C 84,63.8 82.5,65.7 81.1,68.4 C 79.7,71.1 77.6,73.8 76.1,76.6 C 74.7,79.4 73.4,82.7 72.4,85.3 C 71.5,87.9 71,90 70.4,92.3 C 69.8,94.5 69.2,96.8 68.7,98.8 C 68.3,100.9 67.7,102.8 67.5,104.6 C 67.3,106.4 67.4,108.1 67.5,109.5 C 67.6,111 68,112 68.3,113.2 C 68.7,114.5 69,115.1 69.6,116.9 C 70.1,118.7 70.9,121.2 71.6,123.9 C 72.4,126.6 73.3,130.2 74.1,133 C 74.8,135.7 75.6,138.4 76.1,140.4 C 76.7,142.4 77,143.7 77.4,144.9 C 77.7,146.1 78.1,146.9 78.2,147.8 C 78.3,148.7 78.2,149.3 78.2,150.2 C 78.2,151.1 78,152 78.2,153.1 C 78.4,154.3 79.1,155.7 79.4,157.2 C 79.8,158.7 80.5,159.9 80.3,162.2 Z" fill="#6b7280"/>
+              <g id="eye-mark" transform="translate(119,37)">
+                <ellipse rx="2.4" ry="1.5" fill="#ffffff" opacity=".92"/>
+                <circle r="0.95" fill="#ef4444"/>
+              </g>
+            </g>
+            <text id="personH" font-family="system-ui,sans-serif" font-size="12" fill="#64748b" text-anchor="middle">170cm</text>
+          </g>
+          <g font-family="system-ui,sans-serif" font-size="13" font-weight="700">
+            <text id="lab-dist" x="425" y="178" fill="#ef4444" text-anchor="middle">距离 —</text>
+            <text id="lab-ang" x="196" y="150" fill="#16a34a">视角 —</text>
+            <text id="lab-size" x="712" y="196" fill="#2563eb">—</text>
+          </g>
+        </svg>
+      </div>
+      <div class="note">区间已卡死：距离 0.01–100 米、视角 0–120°、高度 0–10 米（各单位按换算显示，超界自动停在边界）。数值框支持三种调节：直接输入（可删空重输/小数）、按住左右拖动、点输入框上下角标逐格增减。三者共用同一比例尺；点 🔒 可主动锁定其中一个（最多一个），不锁时按默认关系联动；停手后显示三角形结论。</div>
+    </div>
 
-  <div class="panel">
-    <div class="tip" style="margin-bottom:12px">点一下看真实例子：</div>
-    <div class="examples" id="examples">
-      <button data-p="moon">满月有多小？（0.5°）</button>
-      <button data-p="thumb">伸直手臂的拇指（2°）</button>
-      <button data-p="eye">视力极限（1 角分）</button>
-      <button data-p="screen">1 米看 24 寸显示器</button>
+    <div class="panel vizpanel">
+      <div class="sec-title">参数调节 <span class="tag2">拖动或输入数字 · 点🔒锁定某一量（最多一个）· 无锁时用默认关系</span>
+        <span class="sexbox" style="margin-left:auto">
+          <label class="sexpick"><input type="radio" name="sex" id="sex-m" value="male" checked> 男士</label>
+          <label class="sexpick"><input type="radio" name="sex" id="sex-f" value="female"> 女士</label>
+          <span class="fixedh">固定身高 <b id="fixedH">169.7</b> cm</span>
+        </span>
+      </div>
+      <div class="ctrlrow">
+        <div class="ctrl" data-k="distance">
+          <div class="clab">距离<button class="ulock" data-k="distance" title="锁定此量（最多锁一个）">🔒</button><span class="hint">↔ 前后移动</span></div>
+          <div class="cell" id="cell-distance" title="按住左右拖动调节"><span class="ico">↔</span><input type="number" id="in-distance" step="1"><select id="u-distance"><optgroup label="长度 · 公制"><option value="millimeters">毫米 mm</option><option value="centimeters">厘米 cm</option><option value="meters">米 m</option><option value="kilometers">千米 km</option></optgroup><optgroup label="长度 · 英制/印刷"><option value="inches">英寸 in</option><option value="feet">英尺 ft</option><option value="yards">码 yd</option><option value="miles">英里 mi</option><option value="points">点 pt</option><option value="picas">皮卡 pc</option><option value="lightyears">光年 ly</option></optgroup></select></div>
+        </div>
+        <div class="ctrl" data-k="angle">
+          <div class="clab">视角<button class="ulock" data-k="angle" title="锁定此量（最多锁一个）">🔒</button><span class="hint">⟨ 张开</span></div>
+          <div class="cell" id="cell-angle" title="按住左右拖动调节"><span class="ico">⟨</span><input type="number" id="in-angle" step="1"><select id="u-angle"><optgroup label="角度"><option value="degrees">度 °</option><option value="radians">弧度 rad</option><option value="arcminutes">角分 ′</option><option value="arcseconds">角秒 ″</option></optgroup><optgroup label="参考单位"><option value="refpixels">参考像素 px</option><option value="dmm">dmm (1mm@1m)</option></optgroup></select></div>
+        </div>
+        <div class="ctrl" data-k="size">
+          <div class="clab">高度<button class="ulock" data-k="size" title="锁定此量（最多锁一个）">🔒</button><span class="hint">⇕ 物体高</span></div>
+          <div class="cell" id="cell-size" title="按住左右拖动调节"><span class="ico">⇕</span><input type="number" id="in-size" step="1"><select id="u-size"><optgroup label="长度 · 公制"><option value="millimeters">毫米 mm</option><option value="centimeters">厘米 cm</option><option value="meters">米 m</option><option value="kilometers">千米 km</option></optgroup><optgroup label="长度 · 英制/印刷"><option value="inches">英寸 in</option><option value="feet">英尺 ft</option><option value="yards">码 yd</option><option value="miles">英里 mi</option><option value="points">点 pt</option><option value="picas">皮卡 pc</option><option value="lightyears">光年 ly</option></optgroup></select></div>
+        </div>
+      </div>
+      <div class="dragbar">鼠标放入数值框变成可拖符 <b>↔</b>，左右拖动即可调节；点 <b>🔒</b> 主动锁定（最多一个，再点另一个会自动解锁）；都不锁时按默认关系联动</div>
+      <div class="toolbar" style="margin-top:12px">
+        <button class="btn primary" id="resetBtn">重置</button>
+        <span class="badge" id="modeInfo"></span>
+      </div>
+      <div class="examples">
+        <button data-p="moon">满月</button><button data-p="thumb">拇指</button><button data-p="eye">视力极限 1′</button><button data-p="screen">1 米看 24 寸</button>
+      </div>
+    </div>
+    </div>
+
+  <div class="right">
+    <div class="panel">
+      <div class="sec-title">电脑效果展示区 <span class="tag2">视角由左侧固定</span></div>
+      <div class="rinput">
+        <select id="res">
+          <option value="1920x1080">1920 × 1080</option>
+          <option value="2560x1440">2560 × 1440</option>
+          <option value="3840x2160">3840 × 2160</option>
+          <option value="1280x720">1280 × 720</option>
+        </select>
+        <input type="number" id="ppi" value="96" min="1" step="1" title="PPI">
+      </div>
+      <div class="mini">分辨率 / PPI</div>
+      <div class="monitor"><div class="monitor-box" id="mbox"></div></div>
+      <div class="kv"><span class="k">屏幕物理高度</span><span class="v" id="o-ph">—</span></div>
+      <div class="kv"><span class="k">人眼到屏幕距离</span><span class="v" id="o-dist">—</span></div>
+      <div class="kv"><span class="k">等效像素高度</span><span class="v" id="o-px">—</span></div>
+      <div class="kv"><span class="k">当前视角</span><span class="v" id="o-ang">—</span></div>
+      <div class="note">由分辨率与 PPI 得屏幕物理高度；在左侧视角下算出人眼距屏幕的距离；再把左侧物理尺寸换算成屏幕上的像素高度，画进上方屏幕。</div>
     </div>
   </div>
 
   <footer>
-    核心公式（弧度制）：<code>θ = 2 × arctan(尺寸 ÷ (2 × 距离))</code><br>
-    参考：1° = 60 角分 = 3600 角秒 · 满月与太阳都约 0.5° · 人眼分辨极限约 1 角分<br>
-    纯前端单页应用 · 无需服务器 · 可免费托管在 GitHub Pages
+    θ = 2·arctan( S ÷ (2D) ) · 1°=60′=3600″ · 满月与太阳约 0.5° · 纯前端单页，可免费托管 GitHub Pages
   </footer>
 </div>
 
 <script>
 (function(){
 'use strict';
-const LEN={
-  millimeters:.001, centimeters:.01, meters:1, kilometers:1000,
-  inches:.0254, feet:.3048, yards:.9144, miles:1609.344,
-  lightyears:9.4607e15, points:.0254/72, picas:.0254/6
+const LEN={millimeters:.001,centimeters:.01,meters:1,kilometers:1000,inches:.0254,feet:.3048,yards:.9144,miles:1609.344,lightyears:9.4607e15,points:.0254/72,picas:.0254/6};
+const ANG={arcseconds:Math.PI/648000,arcminutes:Math.PI/10800,degrees:Math.PI/180,radians:1,dmm:.001,refpixels:.000372};
+const LL={millimeters:'毫米 mm',centimeters:'厘米 cm',meters:'米 m',kilometers:'千米 km',inches:'英寸 in',feet:'英尺 ft',yards:'码 yd',miles:'英里 mi',lightyears:'光年 ly',points:'点 pt',picas:'皮卡 pc'};
+const AL={arcseconds:'角秒 ″',arcminutes:'角分 ′',degrees:'度 °',radians:'弧度 rad',dmm:'dmm (1mm@1m)',refpixels:'参考像素'};
+const KEYS=['distance','size','angle'];
+// 物理区间（内部基础单位：距离/高度=米，视角=弧度）
+const RANGE={
+  distance:[0.01,100],   // 0.01~100 米
+  size:[0,10],           // 0~10 米（允许 0，视角随之为 0）
+  angle:[0,120*Math.PI/180] // 0~120°
 };
-const ANG={
-  arcseconds:Math.PI/648000, arcminutes:Math.PI/10800,
-  degrees:Math.PI/180, radians:1,
-  dmm:.001, refpixels:.000372
-};
-const LEN_LABEL={millimeters:'毫米 mm',centimeters:'厘米 cm',meters:'米 m',kilometers:'千米 km',inches:'英寸 in',feet:'英尺 ft',yards:'码 yd',miles:'英里 mi',lightyears:'光年 ly',points:'点 pt',picas:'皮卡 pc'};
-const ANG_LABEL={arcseconds:'角秒 ″',arcminutes:'角分 ′',degrees:'度 °',radians:'弧度 rad',dmm:'dmm (1mm@1m)',refpixels:'参考像素'};
-
-let solveFor='angle';
+const NAME={distance:'观看距离',size:'物理尺寸',angle:'感知视角'};
+const LINK={distance:{lock:'size',out:'angle'},angle:{lock:'distance',out:'size'},size:{lock:'distance',out:'angle'}};
 const $=id=>document.getElementById(id);
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const dict=k=>k==='angle'?ANG:LEN;
+const labels=k=>k==='angle'?AL:LL;
 
-function fillSelect(el,dict,labels){
-  for(const k in dict){
-    const o=document.createElement('option');o.value=k;o.textContent=labels[k];el.appendChild(o);
-  }
+let driver='distance',solveFor='angle';
+let userLock=null;   // 用户主动锁定（最多一个），null=用默认关系
+let locked={distance:false,size:false,angle:false};
+let baseVals={distance:null,size:null,angle:null};
+
+function factor(k){return dict(k)[$('u-'+k).value];}
+function read(k){
+  const v=parseFloat($('in-'+k).value);
+  if(!isFinite(v))return null;          // 空串/非数字：视为编辑中，暂不计算
+  if(v<0)return 0;                       // 负数按 0 处理
+  const [lo,hi]=RANGE[k];
+  return clamp(v*factor(k),lo,hi);
 }
-fillSelect($('u-distance'),LEN,LEN_LABEL);
-fillSelect($('u-size'),LEN,LEN_LABEL);
-fillSelect($('u-angle'),ANG,ANG_LABEL);
-
-function setUnit(k,u){$('u-'+k).value=u;}
-function val(k){const v=parseFloat($('in-'+k).value);return isFinite(v)?v:null;}
-function toBase(k,v){return k==='angle'?v*ANG[$('u-'+k).value]:v*LEN[$('u-'+k).value];}
-function fromBase(k,v){return k==='angle'?v/ANG[$('u-'+k).value]:v/LEN[$('u-'+k).value];}
 function fmt(v){
   if(v===null||!isFinite(v))return '—';
-  const a=Math.abs(v);
-  if(a!==0&&(a<1e-4||a>=1e7))return v.toExponential(3);
-  return String(parseFloat(v.toPrecision(6)));
+  if(v===0)return '0';                  // 0 直接显示 0，不用科学计数法
+  const r=Math.round(v);
+  if(r!==0)return String(r);
+  if(Math.abs(v)>=1e-4)return String(parseFloat(v.toPrecision(2)));
+  return v.toExponential(1);
 }
-
-function calc(){
-  const D=val('distance'),S=val('size'),A=val('angle');
-  const target=solveFor;
-  let result=null;
-  if(target==='angle'&&D!==null&&S!==null&&D>0&&S>0){
-    const dB=toBase('distance',D),sB=toBase('size',S);
-    result=2*Math.atan(sB/(2*dB));
-  }else if(target==='size'&&D!==null&&A!==null&&D>0&&A>0){
-    const dB=toBase('distance',D),aB=toBase('angle',A);
-    if(aB<Math.PI)result=2*dB*Math.tan(aB/2);
-  }else if(target==='distance'&&S!==null&&A!==null&&S>0&&A>0){
-    const sB=toBase('size',S),aB=toBase('angle',A);
-    if(aB<Math.PI)result=sB/(2*Math.tan(aB/2));
-  }
-  if(result!==null){
-    $('in-'+target).value=fmt(fromBase(target,result));
+function write(k,b){$('in-'+k).value=(b===null||!isFinite(b))?'':fmt(b/factor(k));}
+function applyLink(t){
+  driver=t;
+  if(userLock&&userLock!==t){
+    // 用户主动锁定了别的量：锁它、算第三个
+    locked={distance:false,size:false,angle:false};
+    locked[userLock]=true;
+    solveFor=KEYS.find(k=>k!==t&&k!==userLock);
   }else{
-    $('in-'+target).value='';
+    // 无主动锁（或调的就是被锁量）：用默认关系
+    const r=LINK[t];
+    locked={distance:false,size:false,angle:false};
+    locked[r.lock]=true;
+    solveFor=r.out;
   }
-  update(target,result);
 }
-
-function update(target,baseResult){
-  // 高亮当前求解项
-  ['distance','size','angle'].forEach(k=>$('in-'+k).readOnly=(k===target));
-  // 主结果
-  const labels={distance:LEN_LABEL,size:LEN_LABEL,angle:ANG_LABEL};
-  const unit=labels[target][$('u-'+target).value];
-  const shown=$('in-'+target).value;
-  $('resultVal').textContent=shown||'—';
-  $('resultUnit').textContent=unit;
-  $('resultCap').textContent=shown?'已算出 '+({distance:'观看距离',size:'物理尺寸',angle:'感知角度'})[target]:'填好另外两项就会自动计算';
-  // 全单位展示
-  let html='';
-  const dict=target==='angle'?ANG:LEN, lab=labels[target];
-  if(baseResult!==null){
-    for(const k in dict){
-      html+='<div class="u"><div class="k">'+lab[k]+'</div><div class="v">'+fmt(baseResult/dict[k])+'</div></div>';
+function refreshLink(){applyLink(driver);}
+function recalc(trigger){
+  if(trigger)applyLink(trigger);else refreshLink();
+  const ins=[driver,...Object.keys(locked).filter(k=>locked[k])];
+  let ok=true;
+  // 关键：不写回用户正在编辑的框（trigger），否则输入会被四舍五入/覆盖，无法删了重输
+  ins.forEach(k=>{const v=read(k);baseVals[k]=v;if(v===null)ok=false;else if(k!==trigger)write(k,v);});
+  const out=solveFor;
+  if(out){
+    if(!ok||baseVals[ins[0]]===null||baseVals[ins[1]]===null){baseVals[out]=null;write(out,null);}
+    else{
+      const D=baseVals.distance,S=baseVals.size,A=baseVals.angle;
+      let r=null;
+      // 高度可为 0 → 视角 0；视角可为 0 → 高度 0（都合法，三角形退化成一条线）
+      if(out==='angle'&&D!==null&&S!==null&&D>0)r=2*Math.atan(S/(2*D));
+      else if(out==='size'&&D!==null&&A!==null&&D>0&&A>=0&&A<Math.PI)r=2*D*Math.tan(A/2);
+      else if(out==='distance'&&S!==null&&A!==null&&S>0&&A>0&&A<Math.PI)r=S/(2*Math.tan(A/2));
+      if(r!==null){const [lo,hi]=RANGE[out];r=clamp(r,lo,hi);}  // 算出结果也卡在区间
+      baseVals[out]=r;
+      if(out!==trigger)write(out,r);   // out 若是正在编辑的框也不写回
     }
   }
-  $('allunits').innerHTML=html;
-  draw();
+  KEYS.forEach(k=>{if(k!==out&&baseVals[k]===null)baseVals[k]=read(k);});
+  render();
+}
+function render(){
+  KEYS.forEach(k=>{
+    const cell=$('cell-'+k);
+    cell.classList.toggle('is-out',k===solveFor);
+    cell.classList.toggle('is-locked',userLock===k);
+    const ub=document.querySelector('.ulock[data-k="'+k+'"]');
+    if(ub)ub.classList.toggle('on',userLock===k);
+    // 滑块仍随值同步（内部保留但界面不显示）
+    const sl=$('sl-'+k);
+    if(sl){const b=baseVals[k];if(b!==null&&isFinite(b)&&b>0){
+      const lo=1e-6,hi=k==='angle'?Math.PI:1e16;
+      sl.value=String(clamp(Math.round((Math.log10(b)-Math.log10(lo))/(Math.log10(hi)-Math.log10(lo))*1000),0,1000));
+    }}
+  });
+  const LOCKN={distance:'距离',size:'高度',angle:'视角'};
+  const realLock=KEYS.find(k=>locked[k])||LINK[driver].lock;
+  $('modeInfo').textContent='调整 '+LOCKN[driver]+' → 锁 '+LOCKN[realLock]+' → 算 '+LOCKN[solveFor];
+  drawViz();drawMonitor();
 }
 
-function draw(){
-  const c=$('viz'),x=c.getContext('2d'),W=c.width,H=c.height;
-  x.clearRect(0,0,W,H);
-  const D=val('distance'),S=val('size'),A=val('angle');
-  if(D===null||S===null||A===null){return;}
-  const dB=toBase('distance',D),sB=toBase('size',S),aB=toBase('angle',A);
-  if(!(dB>0&&sB>0&&aB>0&&aB<Math.PI))return;
-  const eyeX=55,cy=H/2,objX=W-70;
-  const h=clamp(Math.tan(aB/2)*700,10,150);
-  // 视线水平线
-  x.strokeStyle='#cbd5e1';x.setLineDash([5,5]);x.lineWidth=1;
-  x.beginPath();x.moveTo(eyeX,cy);x.lineTo(objX,cy);x.stroke();x.setLineDash([]);
-  // 视线夹角
-  x.fillStyle='rgba(37,99,235,.08)';
-  x.beginPath();x.moveTo(eyeX,cy);x.lineTo(objX,cy-h/2);x.lineTo(objX,cy+h/2);x.closePath();x.fill();
-  x.strokeStyle='#2563eb';x.lineWidth=1.5;
-  x.beginPath();x.moveTo(eyeX,cy);x.lineTo(objX,cy-h/2);x.moveTo(eyeX,cy);x.lineTo(objX,cy+h/2);x.stroke();
-  // 眼睛
-  x.fillStyle='#1e293b';x.beginPath();x.arc(eyeX,cy,7,0,Math.PI*2);x.fill();
-  x.strokeStyle='#1e293b';x.lineWidth=2;x.beginPath();x.arc(eyeX,cy,15,0,Math.PI*2);x.stroke();
-  x.fillStyle='#64748b';x.font='13px sans-serif';x.fillText('观察者',eyeX-22,cy+34);
-  // 物体
-  const g=x.createLinearGradient(0,cy-h/2,0,cy+h/2);
-  g.addColorStop(0,'#0ea5e9');g.addColorStop(1,'#2563eb');
-  x.fillStyle=g;x.fillRect(objX-9,cy-h/2,18,h);
-  x.fillStyle='#475569';x.font='13px sans-serif';x.textAlign='center';
-  x.fillText('物体',objX,cy+h/2+22);x.textAlign='left';
-  // 标注
-  x.fillStyle='#2563eb';x.font='bold 14px sans-serif';
-  x.fillText('θ = '+fmt(fromBase('angle',aB))+' '+ANG_LABEL[$('u-angle').value],W/2-60,cy-h/2-12);
-  x.fillStyle='#64748b';x.font='13px sans-serif';
-  x.fillText('距离 = '+fmt(D)+' '+LEN_LABEL[$('u-distance').value],W/2-40,cy+22);
+const EYE={x:70,y:175}, PERSON_VIEW_H=380;
+// 剪影局部坐标里的真实眼睛位置（额头下方、鼻尖上方），男女各一
+const PERSON_EYE={male:{x:119,y:37},female:{x:121,y:38}};
+const HEIGHT={male:1.697,female:1.58};
+let sex='male';
+const PPATH={male:'M 80.3,162.2 C 80,164.4 79,166.9 77.8,170.8 C 76.6,174.7 74,180.8 72.9,185.6 C 71.8,190.4 70.9,195.8 71.2,199.6 C 71.5,203.4 73.3,205.5 74.5,208.2 C 75.7,211 77.7,213.4 78.6,216 C 79.5,218.6 79.8,221.1 79.8,223.9 C 79.9,226.6 79.2,229.3 79,232.5 C 78.9,235.7 78.9,240.1 79,243.2 C 79.2,246.3 79.6,248.9 79.8,251 C 80.1,253.1 80.4,253.7 80.7,255.9 C 80.9,258.1 81.5,260.5 81.5,264.2 C 81.5,267.8 81.2,273.6 80.7,277.7 C 80.1,281.8 78.9,286.2 78.2,288.8 C 77.5,291.4 77,292.1 76.6,293.4 C 76.1,294.6 76,295.2 75.7,296.2 C 75.5,297.3 75.2,297.8 74.9,299.5 C 74.6,301.2 74.2,303.6 74.1,306.5 C 74,309.5 74,314.2 74.1,317.2 C 74.2,320.2 74.6,322.7 74.9,324.6 C 75.2,326.5 75.5,327.1 75.7,328.7 C 76,330.3 76.3,332.1 76.6,334.1 C 76.8,336.1 77.1,337.8 77.4,340.6 C 77.7,343.5 78.1,346.7 78.2,350.9 C 78.3,355.2 78.1,361.6 77.8,366.1 C 77.4,370.7 76.3,375 76.1,378.1 C 76,381.2 75.9,383 76.8,384.9 C 77.6,386.7 79.7,388.2 81.3,389 C 82.9,389.8 84.8,389.6 86.4,389.6 C 88,389.6 89.4,388.9 91,388.8 C 92.5,388.6 93.6,388.6 95.9,388.8 C 98.2,388.9 101.2,389.5 104.9,389.6 C 108.6,389.7 114.5,389.7 118.1,389.6 C 121.7,389.5 124.4,389.1 126.3,388.8 C 128.3,388.5 128.8,388.3 129.8,387.7 C 130.8,387.2 132.2,386.4 132.3,385.7 C 132.4,384.9 132.1,384.2 130.2,383.2 C 128.3,382.3 124.5,381.6 120.8,379.9 C 117,378.3 111.2,375.7 107.6,373.3 C 104,370.9 100.9,367.7 99,365.5 C 97.1,363.4 96.9,362.3 96.3,360.4 C 95.7,358.5 95.6,356.8 95.5,354.2 C 95.3,351.7 95.3,347.9 95.5,345.2 C 95.6,342.4 96,340 96.3,337.8 C 96.6,335.6 96.8,333.9 97.1,332 C 97.4,330.2 97.7,328.4 97.9,326.7 C 98.2,325 98.5,323.8 98.8,321.7 C 99,319.7 99.3,317.2 99.6,314.3 C 99.9,311.5 100.1,307.3 100.4,304.5 C 100.7,301.6 100.9,299.5 101.2,297.5 C 101.6,295.4 101.9,294 102.5,292.1 C 103.1,290.3 104.1,288.1 104.9,286.4 C 105.8,284.7 106.8,283.2 107.4,281.8 C 108,280.5 108.3,279.6 108.6,278.1 C 109,276.6 109.1,275.1 109.5,272.8 C 109.8,270.5 110.2,266.8 110.7,264.2 C 111.2,261.5 111.9,258.6 112.3,256.8 C 112.8,254.9 113.2,254.1 113.6,253.1 C 113.9,252 114.1,251.2 114.4,250.2 C 114.7,249.1 114.9,248 115.2,246.9 C 115.5,245.8 115.8,244.7 116,243.6 C 116.3,242.5 116.6,241.3 116.9,240.3 C 117.1,239.3 117.4,238.3 117.7,237.4 C 117.9,236.6 118,235.7 118.3,235.2 C 118.6,234.6 119,234.4 119.5,234.3 C 120.1,234.3 121,234.8 121.6,234.8 C 122.2,234.7 122.8,234.6 123.2,233.9 C 123.7,233.2 123.9,231.8 124.3,230.4 C 124.6,229 125.1,227.1 125.5,225.5 C 125.9,223.9 126.6,222.1 126.7,220.6 C 126.9,219 126.6,217.3 126.3,216 C 126,214.7 125.6,213.9 125.1,212.7 C 124.6,211.6 124.2,210.6 123.4,209 C 122.7,207.5 121.5,205.1 120.6,203.3 C 119.7,201.4 118.7,199.7 118.1,197.9 C 117.5,196.2 117.1,194.8 116.9,193 C 116.7,191.2 116.7,188.9 116.9,187.3 C 117,185.6 117.4,184.2 117.7,183.1 C 118,182 118.2,181.6 118.5,180.7 C 118.8,179.7 119.1,178.6 119.3,177.4 C 119.6,176.1 119.9,175.2 120.2,173.3 C 120.4,171.3 120.7,168.9 121,165.9 C 121.2,162.8 121.5,158.8 121.8,155.2 C 122.1,151.5 122.5,147.8 122.6,144.1 C 122.8,140.3 122.8,135.7 122.6,132.6 C 122.5,129.4 121.9,127.1 121.8,125.2 C 121.7,123.2 121.9,122.5 122.2,121 C 122.6,119.6 123.5,117.8 123.9,116.5 C 124.2,115.2 124.3,114.3 124.3,113.2 C 124.2,112.2 124.1,112.3 123.4,110.3 C 122.8,108.4 121.9,105.5 120.2,101.7 C 118.4,97.9 115,91.4 112.7,87.3 C 110.5,83.3 107.7,80 106.6,77.4 C 105.5,74.9 105.8,74 106.2,72.1 C 106.5,70.2 107.6,67.7 108.6,65.9 C 109.6,64.1 110.7,62.4 112.1,61.2 C 113.6,60 115.8,60 117.3,58.9 C 118.8,57.8 120.2,56.5 121.2,54.6 C 122.2,52.7 122.7,49.4 123.4,47.4 C 124.2,45.4 125.2,43.8 125.5,42.5 C 125.8,41.2 125.6,40.8 125.1,39.6 C 124.6,38.4 123.4,36.9 122.6,35.1 C 121.8,33.2 121,30.8 120.2,28.5 C 119.3,26.2 118.5,23.6 117.7,21.5 C 116.8,19.4 116.1,17.4 115,16 C 113.9,14.5 112.5,13.5 111.3,12.7 C 110.1,11.9 109.2,11.6 107.8,11.2 C 106.5,10.9 105.1,10.5 103.3,10.4 C 101.4,10.3 98.7,10.2 96.7,10.4 C 94.7,10.6 93.2,10.9 91.4,11.6 C 89.5,12.4 87.6,13.4 85.8,14.7 C 84,16.1 81.7,18.2 80.5,19.7 C 79.2,21.1 78.7,22.3 78.2,23.6 C 77.7,24.8 77.2,25.2 77.4,27.3 C 77.5,29.3 78.1,32.3 79,35.9 C 80,39.5 82.2,45 83.1,49.1 C 84,53.2 84.7,57.4 84.4,60.6 C 84,63.8 82.5,65.7 81.1,68.4 C 79.7,71.1 77.6,73.8 76.1,76.6 C 74.7,79.4 73.4,82.7 72.4,85.3 C 71.5,87.9 71,90 70.4,92.3 C 69.8,94.5 69.2,96.8 68.7,98.8 C 68.3,100.9 67.7,102.8 67.5,104.6 C 67.3,106.4 67.4,108.1 67.5,109.5 C 67.6,111 68,112 68.3,113.2 C 68.7,114.5 69,115.1 69.6,116.9 C 70.1,118.7 70.9,121.2 71.6,123.9 C 72.4,126.6 73.3,130.2 74.1,133 C 74.8,135.7 75.6,138.4 76.1,140.4 C 76.7,142.4 77,143.7 77.4,144.9 C 77.7,146.1 78.1,146.9 78.2,147.8 C 78.3,148.7 78.2,149.3 78.2,150.2 C 78.2,151.1 78,152 78.2,153.1 C 78.4,154.3 79.1,155.7 79.4,157.2 C 79.8,158.7 80.5,159.9 80.3,162.2 Z',female:'M 109.7,279 C 109.2,280.8 108.5,282.2 107.6,285.3 C 106.7,288.5 105.1,293.7 104.2,297.9 C 103.3,302.2 102.6,307.3 102.1,311 C 101.6,314.7 101.5,317.3 101.3,320.2 C 101,323.2 100.7,326 100.4,328.6 C 100.1,331.3 99.9,333.8 99.6,336.2 C 99.3,338.6 98.9,340.5 98.7,342.9 C 98.5,345.3 98.2,347.8 98.3,350.5 C 98.4,353.2 98.5,356.6 99.2,359.3 C 99.8,362 100.8,364.5 102.3,366.7 C 103.8,368.8 106.2,370.6 108.2,372.1 C 110.2,373.6 112.5,374.8 114.3,375.7 C 116.1,376.6 117.4,376.8 118.9,377.4 C 120.4,377.9 121.9,378.6 123.1,379.1 C 124.4,379.6 125.6,380.1 126.5,380.3 C 127.4,380.6 127.8,380.5 128.6,380.8 C 129.4,381 130.4,381.1 131.3,381.8 C 132.2,382.5 133.7,384 134,385 C 134.4,385.9 134,387.1 133.4,387.7 C 132.9,388.3 132.4,388.4 130.7,388.7 C 129,389.1 126.5,389.4 123.1,389.6 C 119.8,389.7 114.2,389.7 110.5,389.6 C 106.8,389.4 103.6,388.9 100.8,388.7 C 98.1,388.6 95.9,388.7 94.1,388.7 C 92.3,388.8 90.9,389.1 89.9,389.2 C 88.9,389.2 88.8,389.2 88.2,389.2 C 87.7,389.2 87.2,389.2 86.5,389.2 C 85.9,389.1 85.3,389 84.4,388.7 C 83.6,388.5 82.5,388.3 81.7,387.7 C 80.9,387.1 80,386.2 79.6,385.2 C 79.2,384.2 79.3,382.7 79.4,381.6 C 79.5,380.4 80,379.4 80.2,378.2 C 80.5,377.1 80.8,376.5 81.1,374.9 C 81.4,373.2 81.8,370.9 81.9,368.1 C 82.1,365.3 82.1,361 81.9,358.1 C 81.8,355.1 81.4,352.6 81.1,350.5 C 80.8,348.4 80.5,347.1 80.2,345.4 C 80,343.8 79.7,342.1 79.4,340.4 C 79.1,338.7 78.9,337.6 78.6,335.4 C 78.2,333.1 77.7,330.3 77.3,326.9 C 77,323.6 76.5,318.5 76.5,315.2 C 76.4,311.8 76.7,309 76.9,306.8 C 77.1,304.5 77.4,303.3 77.7,301.7 C 78,300.2 78.2,299 78.6,297.5 C 78.9,296.1 79.3,294.9 79.8,292.9 C 80.3,290.9 81,288.1 81.5,285.8 C 82,283.4 82.4,281.4 82.8,278.6 C 83.1,275.8 83.5,272.8 83.6,268.9 C 83.7,265.1 83.7,259.6 83.6,255.5 C 83.5,251.4 82.9,247.8 82.8,244.6 C 82.6,241.3 82.6,238.8 82.8,236.2 C 82.9,233.5 83.5,231 83.6,228.6 C 83.7,226.2 83.7,223.7 83.6,221.9 C 83.5,220 83.3,218.6 82.8,217.2 C 82.3,215.8 81.6,214.9 80.7,213.5 C 79.7,212 77.9,209.9 76.9,208.4 C 75.8,206.9 74.9,205.4 74.4,204.2 C 73.8,203 73.8,202.5 73.5,201.3 C 73.2,200 72.8,198.5 72.7,196.6 C 72.5,194.7 72.5,191.8 72.7,189.9 C 72.8,188 73.1,186.8 73.5,185.3 C 73.9,183.7 74.4,182.6 75.2,180.7 C 76,178.8 77.3,176.2 78.6,173.9 C 79.8,171.7 81.5,169.6 82.8,167.2 C 84,164.8 85.4,162 86.1,159.6 C 86.8,157.3 87,155.4 87,153.3 C 87,151.2 86.4,149.5 86.1,147 C 85.8,144.6 85.6,141 85.3,138.6 C 85,136.2 84.7,134.3 84.4,132.7 C 84.2,131.2 83.9,130.4 83.6,129.4 C 83.3,128.3 83.1,127.5 82.8,126.4 C 82.4,125.4 82.1,124.5 81.5,123.1 C 80.9,121.6 80.1,119.5 79.4,117.6 C 78.7,115.7 77.9,114.1 77.3,111.7 C 76.7,109.3 76.4,106.6 76,103.3 C 75.7,100 75.6,94.6 75.4,91.8 C 75.2,88.9 75.1,86.5 74.8,86.1 C 74.5,85.6 74.1,87.8 73.5,89 C 73,90.3 72.1,93 71.4,93.7 C 70.8,94.3 70,93.8 69.5,93 C 69,92.2 68.8,91.1 68.5,89 C 68.2,87 67.9,84.3 67.6,80.6 C 67.4,77 67.1,70.9 66.8,67.2 C 66.5,63.5 66.2,60.5 66,58.3 C 65.7,56.2 65.4,55.5 65.1,54.1 C 64.8,52.8 64.4,51.5 64.3,50.4 C 64.1,49.2 64.1,48 64.3,47 C 64.4,45.9 64.8,45 65.1,44 C 65.4,43.1 65.3,42.4 66,41.1 C 66.7,39.8 67.8,38.2 69.3,36.5 C 70.8,34.7 73.3,32.5 74.8,30.6 C 76.2,28.7 77,27.1 78.1,25.1 C 79.3,23.2 80.2,21 81.7,19 C 83.2,17 85,14.6 87.2,13.2 C 89.3,11.7 91.8,10.9 94.5,10.4 C 97.2,10 101,10.3 103.4,10.4 C 105.7,10.6 107.3,10.9 108.8,11.3 C 110.4,11.6 111.2,11.9 112.6,12.5 C 114,13.2 116.1,14 117.4,15.3 C 118.8,16.6 119.9,18.5 120.8,20.3 C 121.7,22.1 122.2,24.4 122.7,26 C 123.2,27.5 123.7,28.6 124,29.8 C 124.2,30.9 124,31.6 124,32.7 C 124,33.8 123.7,34.9 124,36.1 C 124.2,37.3 125.2,38.6 125.6,39.8 C 126.1,41.1 126.6,42.4 126.5,43.6 C 126.4,44.9 125.6,46.1 125.2,47.4 C 124.8,48.7 124.3,50.3 124,51.6 C 123.6,52.9 123.8,54.2 123.1,55.4 C 122.5,56.6 121.6,57.6 120,58.6 C 118.4,59.5 115.3,60.3 113.5,61.3 C 111.6,62.3 109.7,63.4 108.6,64.4 C 107.6,65.5 107.5,66.6 107.1,67.6 C 106.8,68.6 106.3,69.3 106.3,70.5 C 106.3,71.7 106.2,72.7 107.1,74.7 C 108.1,76.8 109.6,79.3 111.8,82.7 C 113.9,86.2 117.4,91.4 120.2,95.3 C 122.9,99.3 126.3,103.6 128.2,106.3 C 130.1,108.9 131,109.8 131.5,111.3 C 132.1,112.8 131.9,113.5 131.5,115.1 C 131.2,116.6 130.2,118.4 129.4,120.6 C 128.7,122.7 127.5,125.4 126.9,128.1 C 126.3,130.9 126,134.5 125.6,136.9 C 125.3,139.4 125.1,141.3 124.8,142.8 C 124.5,144.4 124.2,145.1 124,146.2 C 123.7,147.2 123.3,148.2 123.1,149.1 C 123,150 123,150.2 123.1,151.7 C 123.3,153.1 123.8,155.2 124,158 C 124.1,160.7 124.1,165.2 124,168.1 C 123.8,170.9 123.5,173.2 123.1,175.2 C 122.8,177.2 122.3,178.3 121.9,180.2 C 121.4,182.2 120.5,184.7 120.2,187 C 119.8,189.2 119.7,190.6 119.8,193.7 C 119.8,196.8 120.5,200.6 120.6,205.5 C 120.7,210.4 120.7,218.3 120.6,223.1 C 120.5,228 120,231.7 119.8,234.5 C 119.5,237.2 119.2,237.9 118.9,239.5 C 118.6,241.1 118.4,242.7 118.1,244.1 C 117.8,245.6 117.6,246.9 117.2,248.3 C 116.9,249.8 116.5,251.1 116,253 C 115.4,254.8 114.6,256.9 113.9,259.3 C 113.2,261.7 112.3,264.7 111.8,267.3 C 111.2,269.8 110.9,272.4 110.5,274.4 C 110.2,276.4 110.2,277.2 109.7,279 Z'};
+// 固定比例尺：人物高:距离:高度 = 身高:D:S（严格同一比例尺）
+const K=250/1.697;   // px / 米
+const VIZ={D:null,S:null,A:null};      // 当前动画显示值
+let anim=null, settleTimer=null, adjusting=false;
+
+function geom(D,S,A){
+  // 三角形最大化：红线尽量占满可用宽度；蓝线按严格比例 蓝/红 = 2·tan(θ/2) = S/D
+  const ratio=2*Math.tan(A/2);          // = S/D，严格比例
+  const Wavail=665, Hhalf=175;          // 可用宽度、可用半高
+  const redLen=Math.min(Wavail, Hhalf/ratio);
+  const blueH=redLen*ratio, half=blueH/2;
+  const ex=EYE.x+redLen, top=EYE.y-half, bot=EYE.y+half;
+  return {redLen,blueH,half,ex,top,bot};
+}
+function paintViz(D,S,A){
+  // 允许高度为0/视角为0：三角形退化成一条水平线（物理正确）
+  if(!(D>0&&S>=0&&A>=0&&A<Math.PI))return;
+  const g=geom(D,S,A);
+  setA('viz-cone',{points:`${EYE.x},${EYE.y} ${g.ex},${g.top} ${g.ex},${g.bot}`});
+  setA('viz-green-top',{x1:EYE.x,y1:EYE.y,x2:g.ex,y2:g.top});
+  setA('viz-green-bot',{x1:EYE.x,y1:EYE.y,x2:g.ex,y2:g.bot});
+  setA('viz-blue',{x1:g.ex,y1:g.top,x2:g.ex,y2:g.bot});
+  setA('viz-red',{x1:EYE.x,y1:EYE.y,x2:g.ex,y2:EYE.y});
+  setA('viz-arc',{d:`M ${EYE.x+34*Math.cos(-A/2)} ${EYE.y+34*Math.sin(-A/2)} A 34 34 0 0 1 ${EYE.x+34*Math.cos(A/2)} ${EYE.y+34*Math.sin(A/2)}`});
+  // 人物是比例尺参照物：人物图上高 : 红线长 = 身高 : 距离（严格同一比例尺）。
+  // 红线长 redLen 同时是三角形与人物共用的基准，故无论 redLen 因视角怎么缩放，比例始终锁定。
+  // 距离越远人越小；近到几十厘米时人物放大、"只剩脸"是正确结果。
+  // 以眼睛为锚点等比缩放：transform 使眼睛(PERSON_EYE)恒落在三角形顶点 EYE，眼睛以上(头)与以下(身体)一起缩放。
+  const ps=g.redLen*HEIGHT[sex]/D/PERSON_VIEW_H;
+  const eye=PERSON_EYE[sex];
+  // 让眼睛局部坐标经 transform 后精确落在三角形顶点 EYE —— 射线永远从眼睛出发
+  $('person').setAttribute('transform',`translate(${(EYE.x-eye.x*ps).toFixed(3)},${(EYE.y-eye.y*ps).toFixed(3)}) scale(${ps.toFixed(6)})`);
+  // 眼睛标记跟随同一锚点（随人物一起缩放），顶点处始终可见
+  $('eye-mark').setAttribute('transform',`translate(${eye.x},${eye.y})`);
+  // 身高标签固定在画布左下角，避免人放大后脚跑到画布外导致标签丢失
+  $('personH').setAttribute('x','18');
+  $('personH').setAttribute('y','370');
+  $('personH').textContent='人物参照 '+(HEIGHT[sex]*100).toFixed(0)+'cm';
+  const du=$('u-distance').value,su=$('u-size').value,au=$('u-angle').value;
+  setA('lab-dist',{x:(EYE.x+g.ex)/2,y:EYE.y-12});
+  $('lab-dist').textContent='距离 '+fmt(D/LEN[du])+' '+LL[du];
+  setA('lab-size',{x:g.ex+12,y:EYE.y+4});
+  $('lab-size').textContent='高度 '+fmt(S/LEN[su])+' '+LL[su];
+  setA('lab-ang',{x:EYE.x+42,y:EYE.y+30});
+  $('lab-ang').textContent='视角 '+fmt(A/ANG[au])+' '+AL[au];
+  // 结论卡
+  $('concl').innerHTML='三角形结论 &nbsp; <b>S = 2·D·tan(θ/2)</b>';
+}
+function startAdjust(){
+  adjusting=true;
+  const tag=$('phaseTag');
+  tag.className='phaseTag proc';
+  const lockN={distance:'距离',size:'高度',angle:'视角'};
+  const rl=KEYS.find(k=>locked[k])||LINK[driver].lock;
+  tag.textContent='变化过程 · 锁 '+lockN[rl]+' → '+lockN[driver]+' 在动';
+  $('concl').classList.remove('show');
+  clearTimeout(settleTimer);
+  // 停手 600ms 后切到结果视图
+  settleTimer=setTimeout(()=>{adjusting=false;tag.className='phaseTag result';tag.textContent='结果视图 · 三角形结论';$('concl').classList.add('show');},600);
+}
+function animateTo(D,S,A){
+  const tgt={D,S,A};
+  if(VIZ.D===null){VIZ.D=D;VIZ.S=S;VIZ.A=A;paintViz(D,S,A);return;}
+  if(anim)cancelAnimationFrame(anim);
+  const step=()=>{
+    let moving=false;
+    for(const k of ['D','S','A']){
+      const t=tgt[k],c=VIZ[k];
+      if(t===null||c===null){VIZ[k]=t;continue;}
+      const d=t-c;
+      if(Math.abs(d)>Math.max(1e-9,Math.abs(t)*1e-4)){VIZ[k]=c+d*0.22;moving=true;}
+      else VIZ[k]=t;
+    }
+    paintViz(VIZ.D,VIZ.S,VIZ.A);
+    if(moving)anim=requestAnimationFrame(step);else anim=null;
+  };
+  anim=requestAnimationFrame(step);
+}
+function applySex(){
+  sex=document.querySelector('input[name=sex]:checked').value;
+  $('person-path').setAttribute('d',PPATH[sex]);
+  const e=PERSON_EYE[sex];$('eye-mark').setAttribute('transform',`translate(${e.x},${e.y})`);
+  $('fixedH').textContent=(HEIGHT[sex]*100).toFixed(1);
+  paintViz(VIZ.D||baseVals.distance,VIZ.S||baseVals.size,VIZ.A||baseVals.angle);
+}
+function setA(id,o){const e=$(id);for(const k in o)e.setAttribute(k,o[k]);}
+function drawViz(){
+  const D=baseVals.distance,S=baseVals.size,A=baseVals.angle;
+  // 允许高度/视角为 0（三角形退化成一条线），只要求距离有效
+  if(!(D>0&&S!==null&&A!==null&&A>=0&&A<Math.PI))return;
+  if(!adjusting && anim===null)animateTo(D,S,A); // 非调整期直接动画到结果
+  else animateTo(D,S,A);
+}
+function drawMonitor(){
+  const A=baseVals.angle,S=baseVals.size;
+  if(!(A>0&&A<Math.PI&&S>0))return;
+  const p=$('res').value.split('x'),W=+p[0],H=+p[1],ppi=Math.max(1,+$('ppi').value||96);
+  const hmm=H/ppi*25.4;
+  const dist=hmm/1000/(2*Math.tan(A/2));
+  const px=S/(hmm/1000)*H;
+  const box=$('mbox'),ratio=clamp(px/H*100,2,94);
+  box.style.height=ratio+'%';
+  box.style.width=Math.max(10,Math.min(70,ratio*1.3))+'%';
+  $('o-ph').textContent=fmt(hmm)+' mm';
+  $('o-dist').textContent=fmt(dist*1000)+' mm ('+fmt(dist)+' m)';
+  $('o-px').textContent=fmt(px)+' px';
+  $('o-ang').textContent=fmt(A*180/Math.PI)+' °';
 }
 
-$('solve').addEventListener('click',e=>{
-  const b=e.target.closest('button');if(!b)return;
-  solveFor=b.dataset.k;
-  document.querySelectorAll('#solve button').forEach(x=>x.classList.toggle('active',x===b));
-  calc();
+KEYS.forEach(k=>{
+  $('in-'+k).addEventListener('input',()=>{
+    // 超上限是明确的错误输入：实时拉回边界；下限/小数/0/输入中间态保留，不打扰编辑
+    const inp=$('in-'+k),raw=parseFloat(inp.value);
+    if(isFinite(raw)){
+      const [lo,hi]=RANGE[k],phys=raw*factor(k);
+      if(phys>hi)inp.value=fmt(hi/factor(k));
+    }
+    startAdjust();recalc(k);
+  });
+  $('u-'+k).addEventListener('change',()=>{
+    // 等效换算：物理值(baseVals，米/弧度)不变，只按新单位重新显示。
+    // 100 毫米=0.1 米 → 切厘米显示 10，而不是把 100 当成 100 厘米。
+    const phys=baseVals[k];
+    if(phys!==null&&isFinite(phys))write(k,phys);
+    startAdjust();recalc();
+  });
+  // 一体输入框：单击=正常编辑（可删改/点上下角标）；按住左右拖=调数值。
+  // 关键：mousedown 不 preventDefault，让输入框能正常聚焦、选中、删除、点 number 的上下角标。
+  // 只有鼠标真的横向移动超过阈值，才进入拖动模式。
+  const cell=$('cell-'+k),inp=$('in-'+k);
+  let dragging=false,startX=0,startVal=0,moved=false;
+  cell.addEventListener('mousedown',e=>{
+    if(e.target.tagName==='SELECT')return;
+    // 不 preventDefault：单击能正常聚焦/删改/点 number 上下角标
+    dragging=true;moved=false;startX=e.clientX;
+    const v=parseFloat(inp.value);startVal=(isFinite(v)&&v>0)?v:0;
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    const dx=e.clientX-startX;
+    // 只有真的横向拖动超过阈值才进入调值模式；单击不触发，留给编辑
+    if(!moved&&Math.abs(dx)>4){moved=true;window.getSelection().removeAllRanges();}
+    if(moved){
+      e.preventDefault();
+      // 匀速线性增长：每像素增起始值的 0.4%（细腻可控，不再指数暴涨）
+      const nv=Math.max(0,startVal*(1+0.004*dx));
+      inp.value=fmt(nv);   // startVal 已是当前单位显示值，直接写回，不再换算
+      startAdjust();recalc(k);
+    }
+  });
+  window.addEventListener('mouseup',()=>{dragging=false;moved=false;});
 });
-['distance','size','angle'].forEach(k=>{
-  $('in-'+k).addEventListener('input',calc);
-  $('u-'+k).addEventListener('change',calc);
+// 主动锁定按钮：最多锁一个，点已锁的则解锁
+document.querySelectorAll('.ulock').forEach(btn=>{
+  btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    const k=btn.dataset.k;
+    userLock=(userLock===k)?null:k;   // 互斥且可取消
+    startAdjust();
+    recalc();                          // 无 trigger → refreshLink 按新锁关系重算
+  });
 });
+$('resetBtn').addEventListener('click',()=>recalc('distance'));
+$('sex-m').addEventListener('change',applySex);
+$('sex-f').addEventListener('change',applySex);
+$('res').addEventListener('change',drawMonitor);
+$('ppi').addEventListener('input',drawMonitor);
 
-const presets={
-  moon:()=>{solveFor='angle';setUnit('distance','kilometers');setUnit('size','kilometers');setUnit('angle','degrees');
-    $('in-distance').value=384400;$('in-size').value=3474;},
-  thumb:()=>{solveFor='size';setUnit('distance','meters');setUnit('size','centimeters');setUnit('angle','degrees');
-    $('in-distance').value=.7;$('in-angle').value=2;},
-  eye:()=>{solveFor='size';setUnit('distance','meters');setUnit('size','millimeters');setUnit('angle','arcminutes');
-    $('in-distance').value=1;$('in-angle').value=1;},
-  screen:()=>{solveFor='angle';setUnit('distance','meters');setUnit('size','inches');setUnit('angle','degrees');
-    $('in-distance').value=1;$('in-size').value=24;}
+/* ================= 顶部电脑信息条 ================= */
+const PC_MODELS={
+  mbp2017:  {pw:2560,ph:1600,lw:1280,lh:800,dpr:'2',inch:13.3},
+  mbp2017_15:{pw:2880,ph:1800,lw:1440,lh:900,dpr:'2',inch:15.4},
+  mba2020:  {pw:2560,ph:1600,lw:1280,lh:800,dpr:'2',inch:13.3},
+  imac24:   {pw:4480,ph:2520,lw:2240,lh:1260,dpr:'2',inch:24},
+  custom:   null
 };
-$('examples').addEventListener('click',e=>{
-  const b=e.target.closest('button');if(!b)return;
-  presets[b.dataset.p]();
-  document.querySelectorAll('#solve button').forEach(x=>x.classList.toggle('active',x.dataset.k===solveFor));
-  calc();
+let pcDimSrc='inch';   // 物理尺寸以哪个输入为准：inch / cm
+function pcNum(id){const v=parseFloat($(id).value);return isFinite(v)&&v>0?v:null;}
+function calcPC(){
+  const pw=pcNum('pc-pw'),ph=pcNum('pc-ph'),lw=pcNum('pc-lw'),lh=pcNum('pc-lh');
+  const dpr=parseFloat($('pc-dpr').value)||1, inch=pcNum('pc-inch'), cw=pcNum('pc-cw'), ch=pcNum('pc-ch');
+  if(!(pw&&ph&&lw&&lh))return;
+  const ratio=pw/ph;   // 物理宽高比
+  let Wcm,Hcm,diagInch;
+  if(pcDimSrc==='inch'&&inch){
+    diagInch=inch;
+    const diagCm=inch*2.54;
+    Wcm=diagCm*ratio/Math.sqrt(1+ratio*ratio);
+    Hcm=Wcm/ratio;
+    $('pc-cw').value=fmt(Wcm);$('pc-ch').value=fmt(Hcm);
+  }else if(cw&&ch){
+    Wcm=cw;Hcm=ch;
+    diagInch=Math.hypot(cw,ch)/2.54;
+    $('pc-inch').value=fmt(diagInch);
+  }else return;
+  const Wmm=Wcm*10, Hmm=Hcm*10;
+  const physPx=Wmm/pw;         // 物理像素边长 mm
+  const logPx=Wmm/lw;          // 逻辑像素边长 mm
+  const perLogical=(pw/lw)*(ph/lh);  // 1 逻辑点含多少物理像素（面积比）
+  const linearRatio=pw/lw;     // 线性倍率（物理/逻辑）
+  const ppi=Math.hypot(pw,ph)/diagInch;   // PPI = 对角线像素数 ÷ 对角线英寸（标准定义）
+  $('pc-r1').textContent=physPx.toFixed(4)+' mm';
+  $('pc-r2').textContent=logPx.toFixed(4)+' mm';
+  $('pc-r3').textContent=fmt(perLogical)+' 个';
+  $('pc-line').innerHTML=`屏幕 ${Wcm.toFixed(1)}×${Hcm.toFixed(1)} cm（${diagInch.toFixed(1)} 寸） · PPI ${fmt(ppi)} · 实测倍率 ${linearRatio.toFixed(2)}x`;
+  $('pc-warn').classList.toggle('show',Math.abs(linearRatio-dpr)>0.03);
+  // 同步到右侧显示器：用真实电脑的物理分辨率与 PPI
+  const resVal=pw+'x'+ph,resSel=$('res');
+  let opt=[...resSel.options].find(o=>o.value===resVal);
+  if(!opt){opt=document.createElement('option');opt.value=resVal;opt.textContent=pw+' × '+ph;resSel.appendChild(opt);}
+  resSel.value=resVal;
+  $('ppi').value=fmt(ppi);
+  drawMonitor();
+}
+function loadModel(key){
+  const m=PC_MODELS[key];if(!m)return;
+  $('pc-pw').value=m.pw;$('pc-ph').value=m.ph;
+  $('pc-lw').value=m.lw;$('pc-lh').value=m.lh;
+  $('pc-dpr').value=m.dpr;$('pc-inch').value=m.inch;
+  pcDimSrc='inch';calcPC();
+}
+['pc-pw','pc-ph','pc-lw','pc-lh','pc-inch','pc-cw','pc-ch'].forEach(id=>{
+  $(id).addEventListener('input',()=>{
+    if(id==='pc-inch'||id==='pc-cw'||id==='pc-ch')pcDimSrc=(id==='pc-inch')?'inch':'cm';
+    $('pc-model').value='custom';calcPC();
+  });
 });
+$('pc-dpr').addEventListener('change',()=>{$('pc-model').value='custom';calcPC();});
+$('pc-model').addEventListener('change',e=>loadModel(e.target.value));
+const presets={
+  moon:()=>{$('u-distance').value='kilometers';$('u-size').value='kilometers';$('u-angle').value='degrees';$('in-distance').value=384400;$('in-size').value=3474;recalc('distance');},
+  thumb:()=>{$('u-distance').value='meters';$('u-size').value='centimeters';$('u-angle').value='degrees';$('in-distance').value=1;$('in-angle').value=2;recalc('angle');},
+  eye:()=>{$('u-distance').value='meters';$('u-size').value='millimeters';$('u-angle').value='arcminutes';$('in-distance').value=1;$('in-angle').value=1;recalc('angle');},
+  screen:()=>{$('u-distance').value='meters';$('u-size').value='inches';$('u-angle').value='degrees';$('in-distance').value=1;$('in-size').value=24;recalc('distance');}
+};
+document.querySelector('.examples').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;presets[b.dataset.p]();});
 
-// 初始：复刻用户给的链接 500mm + 60角分 求尺寸
-setUnit('distance','millimeters');setUnit('size','millimeters');setUnit('angle','arcminutes');
-$('in-distance').value=500;$('in-angle').value=60;
-solveFor='size';
-document.querySelectorAll('#solve button').forEach(x=>x.classList.toggle('active',x.dataset.k==='size'));
-calc();
+$('u-distance').value='millimeters';$('u-size').value='millimeters';$('u-angle').value='arcminutes';
+$('in-distance').value=2000;$('in-size').value=40;
+$('fixedH').textContent=(HEIGHT[sex]*100).toFixed(1);
+recalc('distance');
+loadModel('mbp2017');
+setTimeout(()=>{$('phaseTag').className='phaseTag result';$('phaseTag').textContent='结果视图 · 三角形结论';$('concl').classList.add('show');},50);
 })();
 </script>
 </body>
