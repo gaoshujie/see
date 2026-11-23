@@ -111,9 +111,6 @@
   .ulock.on{color:#d97706;text-shadow:0 0 6px rgba(245,158,11,.5)}
   /* ---- 动画/结论标注 ---- */
   #viz line,#viz polygon,#viz path,#person{transition:none}
-  .phaseTag{position:absolute;top:10px;left:12px;font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px;transition:.3s;pointer-events:none}
-  .phaseTag. proc{background:rgba(245,158,11,.14);color:#b45309}
-  .phaseTag.result{background:rgba(37,99,235,.13);color:#1d4ed8}
   .concl{position:absolute;right:12px;bottom:10px;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:11px;color:var(--txt);box-shadow:0 2px 10px rgba(30,50,90,.08);opacity:0;transform:translateY(4px);transition:.35s;pointer-events:none}
   .concl.show{opacity:1;transform:none}
   .concl b{color:var(--accent)}
@@ -305,6 +302,24 @@
   .left .vizpanel{background:transparent;border:0;box-shadow:none;padding:0;margin:0;display:flex;flex-direction:column;flex:1;min-height:0}
   /* 输入框提到人物之上，放大时不被压住、始终可调 */
   .left .ctrlrow{flex-shrink:0;position:relative;z-index:10}
+  /* ---- 上下结构：彩色大字标签在上 + 白底小输入框在下（仿参考图） ---- */
+  .left .ctrlrow{gap:14px;align-items:flex-start;max-width:67%;margin-left:auto;margin-right:auto}
+  .left .ctrl{padding-top:0;display:flex;flex-direction:column;gap:5px}
+  .left .field-label{
+    font-size:22px;font-weight:800;line-height:1.1;cursor:ew-resize;user-select:none;
+    padding:2px 2px 0;letter-spacing:.5px;transition:filter .15s;align-self:center;
+  }
+  .left .field-label:hover{filter:brightness(1.08)}
+  .left .ctrl[data-k=angle] .field-label{color:#16a34a}
+  .left .ctrl[data-k=distance] .field-label{color:#ef4444}
+  .left .ctrl[data-k=size] .field-label{color:#2563eb}
+  .left .cell{height:42px;border-radius:9px;overflow:visible;gap:0;background:#fff;border-color:#eaecf0}
+  /* 左侧三输入框统一白底、无选中态描边：覆盖 hover/focus/输出高亮 */
+  .left .cell:hover,.left .cell:focus-within,.left .cell.is-out,.left .cell.is-out:hover{background:#fff;border-color:#eaecf0;box-shadow:none}
+  .left .cell .field-ico{display:inline-flex;align-items:center;justify-content:center;width:30px;flex-shrink:0;color:#94a3b8}
+  .left .cell .field-ico svg{width:15px;height:15px;fill:currentColor;stroke:none}
+  .left .cell input[type=number]{font-size:18px;text-align:left;padding-left:4px}
+  .left .cell .ulock{margin:0 3px}
   .left .vizwrap{background:transparent;border:0;flex:1;min-height:0;overflow:visible}
   /* SVG 填满画布，viewBox 内容(xMidYMid meet)自动居中 → 三角形落在窗口正中焦点 */
   /* overflow:visible 让人物按严格比例放大后，身体延伸到 viewBox 外、越过导航栏仍显示 */
@@ -341,8 +356,9 @@
     <div class="panel vizpanel">
       <div class="ctrlrow">
         <div class="ctrl" data-k="angle">
-          <div class="cell" id="cell-angle" title="按住左侧绿色标签左右拖动调节视角">
-            <span class="tag" data-drag="angle"><svg viewBox="0 0 1024 1024"><path d="M0 0h73.143v149.285c426.423 35.181 766.39 375.222 801.572 801.572H1024V1024H0V0z m73.143 517.12v433.737H506.88A512.366 512.366 0 0 0 73.143 517.12z"/></svg>视角</span>
+          <div class="field-label" data-drag="angle" title="按住标签左右拖动调节视角">视角</div>
+          <div class="cell" id="cell-angle" title="按住上方视角标签左右拖动调节">
+            <span class="field-ico"><svg viewBox="0 0 1024 1024"><path d="M820.736 171.4176l-175.2832 109.5424A407.8848 407.8848 0 0 1 716.8 512c0 85.6832-26.368 165.2736-71.3728 231.0144l175.2832 109.568-54.272 86.8352L82.6112 512 766.464 84.5824l54.272 86.8352zM275.7888 512l282.7008 176.6656A305.5616 305.5616 0 0 0 614.4256 512c0-65.792-20.6848-126.72-55.936-176.6912L275.7888 512z"/></svg></span>
             <input type="number" id="in-angle" step="1">
             <button class="ulock" data-k="angle" title="锁定此量（最多锁一个）"></button>
             <select id="u-angle"><optgroup label="角度"><option value="degrees">度 °</option><option value="radians">弧度 rad</option><option value="arcminutes">角分 ′</option><option value="arcseconds">角秒 ″</option></optgroup><optgroup label="参考单位"><option value="refpixels">参考像素 px</option><option value="dmm">dmm (1mm@1m)</option></optgroup></select>
@@ -350,8 +366,9 @@
           </div>
         </div>
         <div class="ctrl" data-k="distance">
-          <div class="cell" id="cell-distance" title="按住左侧红色标签左右拖动调节距离">
-            <span class="tag" data-drag="distance"><svg viewBox="0 0 1024 1024"><path d="M1024 512L820 300v120H204V300L0 512l204 212V604h616v120z"/></svg>距离</span>
+          <div class="field-label" data-drag="distance" title="按住标签左右拖动调节距离">距离</div>
+          <div class="cell" id="cell-distance" title="按住上方距离标签左右拖动调节">
+            <span class="field-ico"><svg viewBox="0 0 1024 1024"><path d="M993.9968 512l-240.9984 240.9984-72.3968-72.3968L798.0032 563.2H225.9968l117.4016 117.4016-72.3968 72.3968L30.0032 512l240.9984-240.9984 72.3968 72.3968L225.9968 460.8h572.0064l-117.4016-117.4016 72.3968-72.3968L993.9968 512z"/></svg></span>
             <input type="number" id="in-distance" step="1">
             <button class="ulock" data-k="distance" title="锁定此量（最多锁一个）"></button>
             <select id="u-distance"><optgroup label="长度 · 公制"><option value="millimeters">毫米 mm</option><option value="centimeters">厘米 cm</option><option value="meters">米 m</option><option value="kilometers">千米 km</option></optgroup><optgroup label="长度 · 英制/印刷"><option value="inches">英寸 in</option><option value="feet">英尺 ft</option><option value="yards">码 yd</option><option value="miles">英里 mi</option><option value="points">点 pt</option><option value="picas">皮卡 pc</option><option value="lightyears">光年 ly</option></optgroup></select>
@@ -359,8 +376,9 @@
           </div>
         </div>
         <div class="ctrl" data-k="size">
-          <div class="cell" id="cell-size" title="按住左侧蓝色标签左右拖动调节高度">
-            <span class="tag" data-drag="size"><svg viewBox="0 0 1024 1024"><path d="M512 0L300 212h120v600H300l212 212 212-212H604V212h120z"/></svg>高度</span>
+          <div class="field-label" data-drag="size" title="按住标签左右拖动调节高度">高度</div>
+          <div class="cell" id="cell-size" title="按住上方高度标签左右拖动调节">
+            <span class="field-ico"><svg viewBox="0 0 1024 1024"><path d="M558.7968 128H563.2v4.4032l189.7984 189.7984-72.3968 72.3968L563.2 277.1968v469.6064l117.4016-117.4016 72.3968 72.3968L563.2 891.5968V896h-4.4032L512 942.7968 465.2032 896H460.8v-4.4032l-189.7984-189.7984 72.3968-72.3968L460.8 746.8032V277.1968l-117.4016 117.4016-72.3968-72.3968L460.8 132.4032V128h4.4032L512 81.2032 558.7968 128z"/></svg></span>
             <input type="number" id="in-size" step="1">
             <button class="ulock" data-k="size" title="锁定此量（最多锁一个）"></button>
             <select id="u-size"><optgroup label="长度 · 公制"><option value="millimeters">毫米 mm</option><option value="centimeters">厘米 cm</option><option value="meters">米 m</option><option value="kilometers">千米 km</option></optgroup><optgroup label="长度 · 英制/印刷"><option value="inches">英寸 in</option><option value="feet">英尺 ft</option><option value="yards">码 yd</option><option value="miles">英里 mi</option><option value="points">点 pt</option><option value="picas">皮卡 pc</option><option value="lightyears">光年 ly</option></optgroup></select>
@@ -369,7 +387,6 @@
         </div>
       </div>
       <div class="vizwrap">
-        <div class="phaseTag result" id="phaseTag">结论视图</div>
         <div class="concl" id="concl"></div>
         <svg id="viz" viewBox="-200 0 860 380" preserveAspectRatio="xMidYMid meet" role="img" aria-label="视角示意图">
           <defs>
@@ -668,7 +685,6 @@ function recalc(trigger){
 function render(){
   KEYS.forEach(k=>{
     const cell=$('cell-'+k);
-    cell.classList.toggle('is-out',k===driver);   // 高亮当前正在调整的字段（不是被算出的字段）
     cell.classList.toggle('is-locked',userLock===k);
     const ub=document.querySelector('.ulock[data-k="'+k+'"]');
     if(ub)ub.classList.toggle('on',userLock===k);
@@ -768,15 +784,10 @@ function paintViz(D,S,A){
 }
 function startAdjust(){
   adjusting=true;
-  const tag=$('phaseTag');
-  tag.className='phaseTag proc';
-  const lockN={distance:'距离',size:'高度',angle:'视角'};
-  const rl=KEYS.find(k=>locked[k])||LINK[driver].lock;
-  tag.textContent='变化过程 · 锁 '+lockN[rl]+' → '+lockN[driver]+' 在动';
   $('concl').classList.remove('show');
   clearTimeout(settleTimer);
-  // 停手 600ms 后切到结果视图
-  settleTimer=setTimeout(()=>{adjusting=false;tag.className='phaseTag result';tag.textContent='结果视图 · 三角形结论';$('concl').classList.add('show');render();},600);
+  // 停手 600ms 后恢复结论视图
+  settleTimer=setTimeout(()=>{adjusting=false;$('concl').classList.add('show');render();},600);
 }
 function animateTo(D,S,A){
   const tgt={D,S,A};
@@ -916,16 +927,20 @@ KEYS.forEach(k=>{
   // 一体输入框：单击=正常编辑（可删改/点上下角标）；按住左右拖=调数值。
   // 关键：mousedown 不 preventDefault，让输入框能正常聚焦、选中、删除、点 number 的上下角标。
   // 只有鼠标真的横向移动超过阈值，才进入拖动模式。
-  const cell=$('cell-'+k),inp=$('in-'+k),tag=cell.querySelector('.tag');
+  const cell=$('cell-'+k),inp=$('in-'+k);
+  const tag=cell.closest('.ctrl').querySelector('.field-label');
   let dragging=false,startX=0,startVal=0,moved=false;
-  // 标签块是滑动手柄：悬停显示滑轨；整个 cell（除下拉/锁按钮）也保留拖动调节
+  // 大字标签是滑动手柄：悬停显示滑轨；整个 cell（除下拉/锁按钮）也保留拖动调节
   const startDrag=e=>{
     if(e.target.tagName==='SELECT'||e.target.closest('.ulock'))return;
     dragging=true;moved=false;startX=e.clientX;
     const v=parseFloat(inp.value);startVal=(isFinite(v)&&v>0)?v:0;
   };
   cell.addEventListener('mousedown',startDrag);
-  tag.addEventListener('mouseenter',()=>cell.classList.add('slide-ready'));
+  if(tag)tag.addEventListener('mousedown',startDrag);
+  if(tag)tag.addEventListener('mouseenter',()=>cell.classList.add('slide-ready'));
+  if(tag)tag.addEventListener('mouseleave',()=>cell.classList.remove('slide-ready'));
+  cell.addEventListener('mouseenter',()=>cell.classList.add('slide-ready'));
   cell.addEventListener('mouseleave',()=>cell.classList.remove('slide-ready'));
   window.addEventListener('mousemove',e=>{
     if(!dragging)return;
@@ -1330,7 +1345,7 @@ document.querySelectorAll('.topnav .tab').forEach(tab=>{
 recalc('distance');
 fillModelOptions();
 loadModel('mbp2017',false);   // 初始化只填媒介字段，不覆盖默认的 500mm 观看距离
-setTimeout(()=>{$('phaseTag').className='phaseTag result';$('phaseTag').textContent='结果视图 · 三角形结论';$('concl').classList.add('show');},50);
+setTimeout(()=>{$('concl').classList.add('show');},50);
 })();
 </script>
 </body>
