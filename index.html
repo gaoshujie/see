@@ -7,6 +7,7 @@
 <style>
   :root{--bg:#f6f8fc;--card:#fff;--line:#e2e8f2;--txt:#1b2733;--muted:#64748b;--accent:#2563eb;--accent2:#0ea5e9;--lock:#f59e0b}
   *{margin:0;padding:0;box-sizing:border-box}
+  [hidden]{display:none!important}
   body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6}
   /* ---- 顶部导航栏（仿草图）---- */
   .topnav{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
@@ -17,12 +18,172 @@
   .topnav .tab:hover{color:var(--txt)}
   .topnav .tab.active{color:var(--txt)}
   .topnav .tab.active::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#ef4444;border-radius:3px 3px 0 0}
+  /* 全局入口区：显示设备信息常驻两页；图片信息仅第二页可见 */
+  .topnav-global{margin-left:auto;display:flex;align-items:center;gap:8px;z-index:2}
   .page{display:none}
   .page.active{display:block}
-  /* 展示页面：把电脑效果展示区单独放大呈现 */
-  .showpage-stage{max-width:900px;margin:auto;padding:26px 20px 50px}
-  .showpage-stage .panel{padding:20px 22px}
-  .showpage-stage .monitor{aspect-ratio:16/9}
+  /* 展示页面：与示意界面共用 .stage / .left / .right 视口锁定布局 */
+  .show-left{display:flex;flex-direction:column;min-width:0;overflow:visible;pointer-events:none}
+  .show-main{display:flex;flex-direction:column;flex:1;min-height:0;width:100%;max-width:1180px;margin:0 auto;padding:0 4px;position:relative;pointer-events:none}
+  /* show-main 空白区让鼠标穿透到全窗口图片层（可拖动）；内部需交互的控件单独恢复 auto */
+  .show-main .show-empty{pointer-events:auto}
+  /* --- 初始态：居中上传入口 --- */
+  .show-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px}
+  .big-ph{width:150px;height:150px;fill:#b8bec8}
+  .big-up-btn{background:#1257f5;color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:600;transition:filter .15s}
+  .big-up-btn{padding:12px 46px;font-size:18px}
+  .big-up-btn:hover{filter:brightness(1.1)}
+  /* 图片卡描边式上传按钮（默认态：图片图标+文字，居中） */
+  .img-upbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px 0;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--txt);font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+  .img-upbtn:hover{border-color:var(--accent);color:var(--accent);background:#f8fbff}
+  .img-upbtn svg{width:22px;height:22px;fill:#94a3b8;flex-shrink:0}
+  .img-upbtn:hover svg{fill:var(--accent)}
+  /* --- 上传后：完整展示界面 --- */
+  .show-body{display:flex;flex-direction:column;flex:1;min-height:0}
+  .show-mode-pill{display:flex;gap:0;background:#fff;border-radius:22px;padding:4px;box-shadow:0 2px 10px rgba(30,50,90,.12);align-self:flex-start;margin:0 0 12px 6px}
+  .sm-btn{border:0;background:transparent;border-radius:18px;padding:7px 20px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;transition:.15s}
+  .sm-btn.active{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.3)}
+  /* 响应式外壳：铺满整个浏览器窗口(导航以下)，其他 UI 悬浮其上；图片中心锚点仍固定在占位区中心 */
+  .show-stage-wrap{position:fixed;top:52px;left:0;width:100vw;height:calc(100vh - 52px);overflow:visible;z-index:1}
+  /* 占位区：保持原展示区的 flex 空间，其中心 = 图片锚点 */
+  .stage-placeholder{flex:1;min-height:0;pointer-events:none}
+  /* show-body 整体悬浮在外壳之上，但自身透明区不拦截拖拽 */
+  .show-body{position:relative;z-index:2;pointer-events:none}
+  .show-body .show-mode-pill,.show-right{pointer-events:auto;position:relative;z-index:2}
+  .show-body .float-dists{pointer-events:auto}
+  /* 视角图白条盖在图片上方，若不穿透会拦截图片拖拽；仅红蓝线手柄保留交互 */
+  .show-body .show-tri-bar{pointer-events:none;position:relative;z-index:2}
+  /* 右上角读数：悬浮在原展示区右上角（避开右侧信息栏） */
+  /* 图片信息入口：第二页画布右上角悬浮（导航栏下方），仅在上传后出现 */
+  #img-entry{position:absolute;top:8px;right:14px;z-index:9;pointer-events:auto}
+  .show-readout{position:absolute;top:58px;right:14px;z-index:8;font-size:11px;line-height:1.65;color:#334155;text-align:right;text-shadow:0 1px 2px #fff,0 0 3px #fff;background:rgba(255,255,255,.82);border-radius:6px;padding:4px 8px}
+  .show-readout>div{cursor:help;border-radius:4px;padding:0 2px}
+  .show-readout>div:hover{background:rgba(37,99,235,.1)}
+  .show-readout span{font-weight:700;color:#0f172a}
+  /* 读数悬停高亮框：指出该尺寸对应的页面区域 */
+  .ro-hl{position:absolute;display:none;z-index:7;border:2px dashed var(--accent);background:rgba(37,99,235,.06);border-radius:4px;pointer-events:none;box-sizing:border-box}
+  .ro-hl.show{display:block}
+  .ro-hl-tag{position:absolute;left:0;top:-20px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap}
+  #monitor{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto;margin:0;overflow:hidden;background:transparent;border:0;border-radius:0;box-shadow:none;display:flex;align-items:center;justify-content:center}
+  #monitor::after{display:none}
+  #show-img{display:block;width:auto;height:auto;object-fit:contain}
+  #show-img.outline{outline:1.5px dashed #f59e0b;outline-offset:-1px}
+  /* 图片平移：整块窗口即拖拽区，鼠标移入即变「移动」光标，任意位置可拖动 */
+  #monitor{cursor:default}
+  #monitor.can-pan{cursor:grab}
+  #monitor.panning,#monitor.panning *{cursor:grabbing!important}
+  #show-img{user-select:none;-webkit-user-drag:none}
+  /* 缩略导航图（迷你地图）：图片超出窗口时显示，点/拖选查看区域 */
+  .img-minimap{position:absolute;right:14px;bottom:8px;z-index:7;width:132px;background:rgba(255,255,255,.94);border:1px solid var(--bd);border-radius:6px;box-shadow:0 2px 10px rgba(30,50,90,.2);padding:5px;display:none}
+  .img-minimap.show{display:block}
+  .img-minimap .mm-stage{position:relative;width:100%;height:auto;overflow:hidden;background:#f1f5f9;border-radius:3px;cursor:crosshair}
+  .img-minimap .mm-stage img{display:block;width:100%;height:100%;object-fit:fill;pointer-events:none}
+  .img-minimap .mm-view{position:absolute;border:1.5px solid var(--accent);background:rgba(37,99,235,.14);border-radius:2px;pointer-events:none}
+  .img-minimap .mm-cap{font-size:9px;color:var(--muted);text-align:center;margin-top:3px}
+  /* 左下浮动距离框 */
+  .float-dists{position:absolute;left:6px;bottom:196px;z-index:5;background:#fff;border:1px solid var(--line);border-radius:9px;padding:8px 10px;box-shadow:0 3px 12px rgba(30,50,90,.14);width:168px}
+  .float-dists .sf{padding:5px 0;border-bottom:0}
+  .float-dists .sf+.sf{border-top:1px dashed var(--line)}
+  .fd-red{color:#ef4444;font-weight:700;font-size:11px}
+  .fd-blue{color:#2563eb;font-weight:700;font-size:11px}
+  .fd-ico{color:#94a3b8;font-size:13px;flex-shrink:0;cursor:ew-resize;transition:color .15s}
+  .fd-ico:hover{color:var(--accent)}
+  .sf-in.dragging{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.12)}
+  .fd-unit{max-width:52px;border:0;background:#f1f5f9;border-radius:4px;font-size:10px;color:var(--muted);padding:2px}
+  /* 底部三角形示意条 */
+  .show-tri-bar{height:180px;flex-shrink:0;background:#fff;border:1px solid var(--line);border-radius:9px;box-shadow:0 2px 10px rgba(30,50,90,.1);margin-top:8px;overflow:hidden}
+  .show-tri-bar svg{width:100%;height:100%;display:block}
+  /* 竖线悬停拖动柄：整条线都是热区，悬停/拖动时显示 ↔ 按钮 */
+  .st-grip{cursor:ew-resize;pointer-events:none}
+  .st-grip .st-grip-hit{fill:transparent;pointer-events:all}
+  .st-grip .st-grip-dot,.st-grip .st-grip-arrow{opacity:0;transition:opacity .12s;pointer-events:none}
+  .st-grip.hot .st-grip-dot,.st-grip.hot .st-grip-arrow{opacity:1}
+  .st-grip .st-grip-dot{stroke:#fff;stroke-width:1.5;filter:drop-shadow(0 1px 3px rgba(0,0,0,.25))}
+  .show-tri-bar.dragging-grip,.show-tri-bar.dragging-grip *{cursor:ew-resize!important}
+  /* 右侧信息栏 */
+  .show-right{padding-right:3px}
+  .show-right .panel{padding:14px 15px;background:#fff}
+  .show-right .sec-title{font-size:12px;margin-bottom:8px}
+  .show-right .kv{font-size:10.5px;padding:6px 0;gap:6px}
+  .show-right .kv .v{font-size:10.5px}
+  /* 图片信息卡：上传后分段标题/提示 */
+  .im-ok{font-size:12px;color:var(--txt);font-weight:600;padding:4px 0 10px}
+  .im-h2{font-size:12.5px;font-weight:800;color:var(--txt);margin:6px 0 8px}
+  .im-h2-row{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+  .im-hint{font-size:10px;color:var(--muted);font-weight:400}
+  .im-pxrow{font-size:11px;padding:7px 0;border-bottom:1px solid var(--line)}
+  .im-pxrow .v{font-size:12px;font-weight:700}
+  .im-radio{display:inline-flex;gap:3px;background:var(--fill);border:1px solid var(--bd);border-radius:7px;padding:2px;margin-bottom:9px}
+  .imr{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--muted);padding:5px 12px;border-radius:5px;cursor:pointer;transition:.15s;user-select:none}
+  .imr input{accent-color:var(--accent);margin:0;width:12px;height:12px;cursor:pointer}
+  .imr.on{background:#fff;color:var(--accent);box-shadow:0 1px 5px rgba(30,50,90,.1)}
+  .im-dev-u{display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);border-left:1px solid var(--bd);padding:0 8px;flex-shrink:0}
+  .im-size-wh{margin-bottom:6px}
+  .im-size-u{min-width:54px;flex-shrink:0}
+  .im-footnote{font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4}
+  /* 紧凑字段行 */
+  .sf{display:flex;flex-direction:column;gap:3px;padding:6px 0;border-bottom:1px dashed var(--line)}
+  .sf-k{font-size:10.5px;color:var(--muted)}
+  .sf-in{display:flex;align-items:center;gap:4px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:3px 5px}
+  .sf-in:focus-within{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.12)}
+  .sf-in input[type=number]{border:0;box-shadow:none!important;background:transparent;padding:2px 0;font-size:12px;text-align:center;flex:1;min-width:0;outline:none}
+  .sf-in input[type=number]:focus{border:0;box-shadow:none!important}
+  .sf-in>span{font-size:11px;color:var(--muted);flex-shrink:0}
+  .sf-in .sf-u{margin-left:2px}
+  .sf-sel{width:100%;max-width:none;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px;background:#fff;color:var(--txt)}
+  /* 显示设备信息卡：设备下拉 + 完整字段（仿示意界面媒介信息） */
+  .sd-model-sel{width:100%;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:12px;font-weight:700;background:var(--fill);color:var(--txt);outline:none;margin-bottom:2px}
+  .sd-model-sel:hover{background:var(--fill-hover)}
+  .sd-model-sel:focus{background:#fff;border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.13)}
+  /* 显示设备卡：设备名大字标题式下拉（无外框，右箭头，下方横线） */
+  .sd-model-title{display:block;width:100%;max-width:none;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:2px 16px 9px 0;margin:0 0 10px;font-size:14px;font-weight:800;color:var(--txt);outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%2364748b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 2px center}
+  .sd-model-title:hover{background-color:transparent}
+  .sd-model-title:focus{background-color:transparent;box-shadow:none;border-bottom-color:var(--accent)}
+  .sd-sep{border-top:1px solid var(--line);margin:9px 0}
+  /* 详细参数折叠：只读派生细节默认收起，保留全部 id 与计算链 */
+  .sd-fold{margin-top:9px;border-top:1px solid var(--line);padding-top:7px}
+  .sd-fold-title{font-size:11px;font-weight:700;color:var(--accent);padding:2px 0 8px;user-select:none}
+  /* 第二页：右侧信息卡 → 右上角两个入口 + 弹出气泡，主画面占满 */
+  #page-show .stage{grid-template-columns:1fr}
+  #page-show .show-right{position:absolute;top:8px;right:14px;z-index:70;width:auto;height:auto;overflow:visible;padding:0;pointer-events:auto}
+  .show-entry-bar{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+  .entry-wrap{position:relative}
+  .entry-pill{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:24px;padding:5px 6px 5px 16px;box-shadow:0 2px 10px rgba(30,50,90,.12);white-space:nowrap}
+  .entry-label{font-size:14px;font-weight:800;color:var(--txt)}
+  .entry-set,.entry-up{display:inline-flex;align-items:center;gap:5px;border:1px solid #dfe3ea;background:#fff;border-radius:16px;padding:5px 12px;font-size:13px;font-weight:600;color:var(--txt);cursor:pointer;line-height:1.3;font-family:inherit}
+  .entry-set:hover,.entry-up:hover{border-color:var(--accent);color:var(--accent);background:#f8fbff}
+  .entry-set svg,.entry-up svg{width:13px;height:13px;stroke:currentColor;stroke-width:1.8;fill:none}
+  /* 全局设备入口：铅笔图标 + 「设备信息」整块按钮（仿参考图） */
+  .entry-set.nav-device-btn{display:inline-flex;align-items:center;gap:9px;border:1px solid #cbd2dc;background:#fff;border-radius:11px;padding:7px 17px;font-size:15px;font-weight:700;color:#1f2733;line-height:1.25;box-shadow:none}
+  .entry-set.nav-device-btn:hover{border-color:var(--accent);color:var(--accent);background:#f8fbff}
+  .nav-device-btn svg.dev-pencil{width:20px;height:20px;fill:#555c66;stroke:none;flex-shrink:0}
+  .nav-device-btn:hover svg.dev-pencil{fill:var(--accent)}
+  .pop-bubble{display:none;position:absolute;top:calc(100% + 12px);right:0;width:300px;max-height:calc(100vh - 130px);overflow-y:auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:4px 16px 16px;box-shadow:0 10px 30px rgba(30,50,90,.2);z-index:80}
+  .pop-bubble.show{display:block}
+  .pop-bubble::before{content:"";position:absolute;top:-8px;right:24px;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:8px solid #fff;z-index:1}
+  /* 设备信息是整块大按钮，尖角对齐其中心（右52px）；图片信息仍指向小设置按钮（右24px） */
+  #bubble-device::before{right:52px}
+  .pop-bubble .sec-title{display:none}
+  .pop-bubble .panel{background:transparent;padding:0}
+  .sd-grp{margin-bottom:8px}
+  .sd-lab{font-size:10.5px;color:var(--muted);margin-bottom:4px}
+  .sd-wh{display:flex;align-items:center;gap:5px}
+  .sd-wh .x{color:var(--muted);font-size:11px;flex-shrink:0}
+  .sd-wh .whinp,.sd-wh .uni-field{height:27px;border-radius:6px}
+  .sd-wh .whinp input,.sd-wh .uni-field input{height:25px;line-height:25px;font-size:12px;font-weight:600;color:var(--txt)}
+  .sd-wh .wh-pre{cursor:ew-resize;user-select:none;padding:2px 3px;border-radius:4px;transition:.15s;font-size:11px}
+  .sd-wh .wh-pre:hover{background:#e0ecff;color:var(--accent)}
+  .sd-wh .whinp.dragging-h,.sd-wh .uni-field.dragging-h{background:#e0ecff;border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.13)}
+  .sd-inline-sel{border:1px solid var(--bd);border-radius:6px;background:var(--fill);color:var(--txt);font-size:11px;padding:4px 5px;outline:none;flex-shrink:0}
+  .sd-wh .uni-field .sd-inline-sel{border:0;border-left:1px solid var(--bd);border-radius:0;height:100%;background:transparent;min-width:50px}
+  .sd-dpr-sel{min-width:76px;padding:6px 8px;font-size:12px}
+  /* 界面点/CSS px：自动派生，纯文本显示（非输入框） */
+  .sd-css-note{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+  .sd-css-note .sd-lab{line-height:1.45;white-space:normal}
+  .sd-css-val{text-align:right;flex-shrink:0;font-size:11px;color:var(--txt);line-height:1.45}
+  .sd-css-val b{font-size:13px;font-weight:800}
+  .sd-pxrow{font-size:10.5px;padding:5px 0;gap:6px}
+  .sd-pxrow .v{font-size:10.5px;font-weight:700}
   .stage{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;max-width:1400px;margin:auto;padding:26px 20px 50px;align-items:start}
   @media(max-width:1120px){.stage{grid-template-columns:1fr}}
   .right{display:flex;flex-direction:column;gap:14px}
@@ -111,6 +272,12 @@
   .ulock.on{color:#d97706;text-shadow:0 0 6px rgba(245,158,11,.5)}
   /* ---- 动画/结论标注 ---- */
   #viz line,#viz polygon,#viz path,#person{transition:none}
+  /* 画布内可拖动线条：命中时加粗（线宽过渡），光标提示方向 */
+  #viz-red,#viz-blue{transition:stroke-width .12s ease}
+  #viz-red.hot{stroke-width:3.5;cursor:ew-resize}
+  #viz-blue.hot{stroke-width:3.5;cursor:ns-resize}
+  .vizwrap.drag-red,#viz.drag-red *{cursor:ew-resize!important}
+  .vizwrap.drag-blue,#viz.drag-blue *{cursor:ns-resize!important}
   .concl{position:absolute;right:12px;bottom:10px;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:11px;color:var(--txt);box-shadow:0 2px 10px rgba(30,50,90,.08);opacity:0;transform:translateY(4px);transition:.35s;pointer-events:none}
   .concl.show{opacity:1;transform:none}
   .concl b{color:var(--accent)}
@@ -202,9 +369,22 @@
   }
   .right .pcinp input[type=number]{text-align:center;min-width:0;flex:1}
   .right .pcinp .x{font-size:10px}
+  /* 一体式数值+单位输入框（仿左侧高度输入框）：外框包住图标/数值/单位，无分离感 */
+  .uni-field{display:inline-flex;align-items:center;background:var(--fill);border:1px solid var(--bd);border-radius:5px;height:25px;flex:1;min-width:0;padding:0 2px 0 6px}
+  .uni-field:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.13)}
+  .uni-field .uf-ico{display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;flex-shrink:0;color:var(--muted);margin-right:4px}
+  .uni-field .uf-ico svg{width:12px;height:12px;fill:currentColor;stroke:none;transform:rotate(45deg)}
+  .uni-field input[type=number]{flex:1;min-width:0;height:23px;line-height:23px;padding:0;font-size:11px;text-align:center;background:transparent;border:0!important;box-shadow:none!important}
+  .uni-field input[type=number]:hover,.uni-field input[type=number]:focus{background:transparent;border:0!important;box-shadow:none!important}
+  .right .pcinp .uni-field select{width:auto;min-width:52px;height:21px;line-height:21px;padding:0 2px;font-size:11px;text-align:left;background:transparent!important;border:0!important;border-left:1px solid var(--bd)!important;border-radius:0!important;box-shadow:none!important}
   .right .sexpick{padding:3px 8px;font-size:10px;border-radius:5px}
   .right .sexpick input{font-size:10px}
   .right .medium-radio .mr{font-size:10px;padding:3px 8px}
+  .medium-radio{display:inline-flex;gap:3px;background:var(--fill);border:1px solid var(--bd);border-radius:7px;padding:2px;margin-bottom:8px}
+  .medium-radio .mr{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--muted);padding:4px 12px;border-radius:5px;cursor:pointer;transition:.15s;user-select:none}
+  .medium-radio .mr:hover{background:var(--fill-hover)}
+  .medium-radio .mr input{accent-color:var(--accent);margin:0;cursor:pointer;width:12px;height:12px}
+  .medium-radio .mr.on{background:#fff;color:var(--accent);box-shadow:0 1px 5px rgba(30,50,90,.1)}
   .right .pcres{padding:8px 9px;margin-top:9px;border-radius:7px}
   .right .pcres .glab{font-size:10px;margin-bottom:5px}
   .right .pcres .cell2{padding:5px 6px;border-radius:5px}
@@ -285,14 +465,11 @@
   .cell .ulock.on .ic-lock{display:block}
   .cell .ulock:hover{color:#f0b429}
   .cell select{width:78px}
-  /* 悬停/拖动标签时显示的滑动轨道 */
-  .cell .slide-rail{display:none;position:absolute;left:6px;right:6px;bottom:2px;height:3px;border-radius:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);pointer-events:none}
-  .cell.slide-ready .slide-rail,.cell.sliding .slide-rail{display:block}
 
   /* ---- 页面灰底 + 左侧示意图扩展到整页 + 右侧保持白卡（放最后覆盖） ---- */
   :root{--bg:#f3f3f3}
-  /* 导航栏：灰底、无分割线，只留 tab 下划线 */
-  .topnav{background:var(--bg);border-bottom:0}
+  /* 导航栏：背景透明（让剪影可盖过导航背景区），z-index 高于 left 使标题文字不被剪影遮住；底部 1px 淡色下划线 */
+  .topnav{background:transparent;border-bottom:1px solid #e2e2e2;z-index:60}
   /* 视口锁定：stage 高度=视口减导航，不随内容增高；左侧固定、右侧独立滚动 */
   html,body{height:100%}
   body{overflow:hidden}
@@ -306,20 +483,74 @@
   .left .ctrlrow{gap:14px;align-items:flex-start;max-width:67%;margin-left:auto;margin-right:auto}
   .left .ctrl{padding-top:0;display:flex;flex-direction:column;gap:5px}
   .left .field-label{
-    font-size:22px;font-weight:800;line-height:1.1;cursor:ew-resize;user-select:none;
+    font-size:22px;font-weight:800;line-height:1.1;cursor:default;user-select:none;
     padding:2px 2px 0;letter-spacing:.5px;transition:filter .15s;align-self:center;
   }
   .left .field-label:hover{filter:brightness(1.08)}
   .left .ctrl[data-k=angle] .field-label{color:#16a34a}
   .left .ctrl[data-k=distance] .field-label{color:#ef4444}
   .left .ctrl[data-k=size] .field-label{color:#2563eb}
-  .left .cell{height:42px;border-radius:9px;overflow:visible;gap:0;background:#fff;border-color:#eaecf0}
-  /* 左侧三输入框统一白底、无选中态描边：覆盖 hover/focus/输出高亮 */
-  .left .cell:hover,.left .cell:focus-within,.left .cell.is-out,.left .cell.is-out:hover{background:#fff;border-color:#eaecf0;box-shadow:none}
-  .left .cell .field-ico{display:inline-flex;align-items:center;justify-content:center;width:30px;flex-shrink:0;color:#94a3b8}
+  /* 输入框三态设计系统：描边(border)与阴影(shadow)是两个独立维度，各状态只覆盖需要的维度。
+     idle 默认=纯白无描边无阴影 · hover 悬停=仅加柔和外阴影 · active 操作=阴影之上再加蓝描边 */
+  .left .cell{
+    --cell-bd:transparent;   /* 描边色：默认透明（保留 1.5px 占位，避免状态切换时布局跳动） */
+    --cell-shadow:none;      /* 外阴影：默认无 */
+    --cell-bg:#fff;
+    height:42px;border-radius:9px;overflow:visible;gap:0;cursor:default;
+    background:var(--cell-bg);border:1.5px solid var(--cell-bd);box-shadow:var(--cell-shadow);
+    transition:border-color .16s ease,box-shadow .16s ease;
+  }
+  /* 悬停 / 聚焦：只加一层柔和外阴影，描边保持透明 */
+  .left .cell:hover,.left .cell:focus-within{--cell-shadow:0 4px 16px rgba(30,50,90,.16)}
+  /* 操作态：沿用悬停阴影，并叠加蓝色描边 */
+  .left .cell.sliding{--cell-bd:var(--accent);--cell-shadow:0 4px 16px rgba(30,50,90,.16)}
+  .left .cell .field-ico{display:inline-flex;align-items:center;justify-content:center;width:30px;flex-shrink:0;color:#94a3b8;cursor:ew-resize}
   .left .cell .field-ico svg{width:15px;height:15px;fill:currentColor;stroke:none}
-  .left .cell input[type=number]{font-size:18px;text-align:left;padding-left:4px}
-  .left .cell .ulock{margin:0 3px}
+  /* 文字区：与全局输入框样式彻底隔离——hover/focus 都不出现灰底或边框，
+     只有真正框选数字时才显示浏览器原生 selection 高亮。光标：滑入普通箭头，点击聚焦变文本 */
+  .left .cell input[type=number]{
+    font-size:18px;text-align:left;padding-left:4px;cursor:default;
+    background:transparent!important;border:0!important;box-shadow:none!important;outline:none!important;
+  }
+  .left .cell input[type=number]:hover,.left .cell input[type=number]:focus{
+    background:transparent!important;border:0!important;box-shadow:none!important;
+  }
+  .left .cell input[type=number]:focus{cursor:text}
+  /* 主动锁定的字段：不可编辑，光标提示禁止，数字区保持只读样式 */
+  .left .cell.is-locked{cursor:not-allowed}
+  .left .cell.is-locked input[type=number],.left .cell.is-locked input[type=number]:focus{cursor:not-allowed;color:#64748b}
+  .left .cell.is-locked .field-ico{cursor:not-allowed;opacity:.55}
+  /* ---- 锁三态：回到 flex 流，靠「是否占位」决定数字显示长度 ----
+     正常态：width:0 不占位、隐藏 → 数字完整显示到单位前短线
+     悬浮态：展开占位 + 空心灰锁 → 数字被截断
+     锁定态：展开占位 + 实心黑锁 → 数字被截断（锁定优先于悬浮） */
+  .left .cell .ulock{
+    position:static;display:inline-flex;align-items:center;justify-content:center;
+    width:0;min-width:0;height:23px;margin:0;padding:0;
+    opacity:0;overflow:hidden;flex-shrink:0;border-radius:5px;
+    transition:width .16s ease,margin .16s ease,opacity .16s ease;
+  }
+  /* 悬浮 / 锁定：锁展开占位。未锁定=空心灰锁，已锁定=实心黑锁（见下） */
+  .left .cell:hover .ulock,.left .cell .ulock.on{
+    width:18px;min-width:18px;margin:0 11px 0 3px;opacity:1;overflow:visible;color:#64748b;
+  }
+  .left .cell .ulock.on{color:#1f2937}
+  .left .cell .ulock:hover{color:#64748b;background:transparent}
+  .left .cell .ulock.on:hover{color:#1f2937}
+  /* 单位下拉：去掉贯穿长竖线，改为左侧居中的一段短线（多重背景实现，select 无伪元素）。
+     背景分两层：底层灰框(hover 时显现) + 顶层左侧短线；用子属性精确控制，避免被全局 background 简写重置。 */
+  .left .cell select{
+    border-left:0!important;
+    background-color:transparent;
+    background-image:linear-gradient(var(--line),var(--line));
+    background-repeat:no-repeat;
+    background-position:0 center;
+    background-size:1px 16px;
+  }
+  /* 单位区悬停灰框（图1效果）：只改背景色，短线作为 background-image 保留 */
+  .left .cell select:hover{background-color:#eef1f6!important;border-radius:6px}
+  /* 拖动调节期间全局保持拖动光标，松开鼠标瞬间才恢复 */
+  body.dragging-range,body.dragging-range *{cursor:ew-resize!important}
   .left .vizwrap{background:transparent;border:0;flex:1;min-height:0;overflow:visible}
   /* SVG 填满画布，viewBox 内容(xMidYMid meet)自动居中 → 三角形落在窗口正中焦点 */
   /* overflow:visible 让人物按严格比例放大后，身体延伸到 viewBox 外、越过导航栏仍显示 */
@@ -344,8 +575,59 @@
   <div class="topnav-in">
     <div class="brand">视角计算器</div>
     <div class="tabs">
-      <div class="tab active" data-page="page-demo">示意界面</div>
-      <div class="tab" data-page="page-show">展示页面</div>
+      <div class="tab active" data-page="page-demo">第一页</div>
+      <div class="tab" data-page="page-show">第二页</div>
+    </div>
+    <div class="topnav-global" id="global-entries">
+      <div class="entry-wrap">
+        <button type="button" class="entry-set nav-device-btn" data-bubble="bubble-device" title="设置显示设备信息">
+          <svg class="dev-pencil" viewBox="0 0 24 24" fill="currentColor"><path d="M14.06 3.94a1.5 1.5 0 0 1 2.12 0l3.88 3.88a1.5 1.5 0 0 1 0 2.12L8.5 21H3v-5.5L14.06 3.94z"/><circle cx="2.5" cy="22.4" r="1.1"/><circle cx="6" cy="22.4" r="1.1"/><circle cx="9.5" cy="22.4" r="1.1"/></svg>
+          <span>设备信息</span>
+        </button>
+        <div class="pop-bubble" id="bubble-device">
+    <div class="panel">
+      <div class="sec-title">显示设备信息</div>
+      <select id="sd-model" class="sd-model-title" title="选择当前显示设备预设"></select>
+      <div class="sd-grp">
+        <div class="sd-lab">物理分辨率</div>
+        <div class="sd-wh">
+          <label class="whinp"><span class="wh-pre sd-drag" data-sd="sd-rw" title="左右拖动调节">W</span><input type="number" id="sd-rw" value="2560" min="1"></label>
+          <span class="x">×</span>
+          <label class="whinp"><span class="wh-pre sd-drag" data-sd="sd-rh" title="左右拖动调节">H</span><input type="number" id="sd-rh" value="1600" min="1"></label>
+        </div>
+      </div>
+      <div class="sd-grp">
+        <div class="sd-lab">逻辑分辨率</div>
+        <div class="sd-wh">
+          <label class="whinp"><span class="wh-pre sd-drag" data-sd="sd-lw" title="左右拖动调节">W</span><input type="number" id="sd-lw" value="2880" min="1"></label>
+          <span class="x">×</span>
+          <label class="whinp"><span class="wh-pre sd-drag" data-sd="sd-lh" title="左右拖动调节">H</span><input type="number" id="sd-lh" value="1800" min="1"></label>
+        </div>
+      </div>
+      <div class="sd-grp">
+        <div class="sd-lab">屏幕尺寸（对角线）</div>
+        <div class="sd-wh">
+          <label class="uni-field"><span class="uf-ico sd-drag" data-sd="sd-inch" title="左右拖动调节"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2l3 0 0 1.4L3.8 3.4 6.4 6 5.4 7 2.8 4.4 2.8 5 1.4 5zM14 14l-3 0 0-1.4 1.2 0L9.6 10l1-1 2.6 2.6 0-.6 1.4 0z"/></svg></span><input type="number" id="sd-inch" value="13.3" min="0.1" step="0.1"><select id="u-sd-inch" class="sd-inline-sel" title="屏幕尺寸单位"><option value="inches" selected>英寸</option><option value="centimeters">cm</option><option value="millimeters">mm</option></select></label>
+          <button type="button" class="dim-toggle" id="sd-dim-toggle" title="展开/收起物理宽高"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M2 6V3.5A1.5 1.5 0 0 1 3.5 2H6M10 2h2.5A1.5 1.5 0 0 1 14 3.5V6M14 10v2.5a1.5 1.5 0 0 1-1.5 1.5H10M6 14H3.5A1.5 1.5 0 0 1 2 12.5V10"/></svg></button>
+        </div>
+        <div class="dim-extra" id="sd-dim-extra">
+          <div class="glab">物理宽高 <span class="lockpill">按分辨率宽高比联动</span></div>
+          <div class="sd-wh">
+            <label class="whinp"><span class="wh-pre sd-drag" data-sd="sd-cw" title="左右拖动调节">W</span><input type="number" id="sd-cw" value="28.3" min="0.1" step="0.1"></label>
+            <span class="x">×</span>
+            <label class="whinp"><span class="wh-pre sd-drag" data-sd="sd-ch" title="左右拖动调节">H</span><input type="number" id="sd-ch" value="17.7" min="0.1" step="0.1"></label>
+            <select id="u-sd-wh" class="sd-inline-sel" title="宽高单位"><option value="centimeters" selected>cm</option><option value="inches">英寸</option><option value="millimeters">mm</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="sd-sep"></div>
+      <div class="sd-grp">
+        <div class="sd-lab">倍率 DPR</div>
+        <select id="sd-dpr" class="sd-inline-sel sd-dpr-sel"><option value="1">1x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2" selected>2x</option><option value="3">3x</option></select>
+      </div>
+    </div>
+        </div><!-- /bubble-device -->
+      </div><!-- /entry-wrap device -->
     </div>
   </div>
 </div>
@@ -356,33 +638,30 @@
     <div class="panel vizpanel">
       <div class="ctrlrow">
         <div class="ctrl" data-k="angle">
-          <div class="field-label" data-drag="angle" title="按住标签左右拖动调节视角">视角</div>
-          <div class="cell" id="cell-angle" title="按住上方视角标签左右拖动调节">
+          <div class="field-label" data-drag="angle">视角</div>
+          <div class="cell" id="cell-angle" title="点数字直接输入；按住左侧图标左右拖动调节视角">
             <span class="field-ico"><svg viewBox="0 0 1024 1024"><path d="M820.736 171.4176l-175.2832 109.5424A407.8848 407.8848 0 0 1 716.8 512c0 85.6832-26.368 165.2736-71.3728 231.0144l175.2832 109.568-54.272 86.8352L82.6112 512 766.464 84.5824l54.272 86.8352zM275.7888 512l282.7008 176.6656A305.5616 305.5616 0 0 0 614.4256 512c0-65.792-20.6848-126.72-55.936-176.6912L275.7888 512z"/></svg></span>
             <input type="number" id="in-angle" step="1">
             <button class="ulock" data-k="angle" title="锁定此量（最多锁一个）"></button>
             <select id="u-angle"><optgroup label="角度"><option value="degrees">度 °</option><option value="radians">弧度 rad</option><option value="arcminutes">角分 ′</option><option value="arcseconds">角秒 ″</option></optgroup><optgroup label="参考单位"><option value="refpixels">参考像素 px</option><option value="dmm">dmm (1mm@1m)</option></optgroup></select>
-            <span class="slide-rail"></span>
           </div>
         </div>
         <div class="ctrl" data-k="distance">
-          <div class="field-label" data-drag="distance" title="按住标签左右拖动调节距离">距离</div>
-          <div class="cell" id="cell-distance" title="按住上方距离标签左右拖动调节">
+          <div class="field-label" data-drag="distance">距离</div>
+          <div class="cell" id="cell-distance" title="点数字直接输入；按住左侧图标左右拖动调节距离">
             <span class="field-ico"><svg viewBox="0 0 1024 1024"><path d="M993.9968 512l-240.9984 240.9984-72.3968-72.3968L798.0032 563.2H225.9968l117.4016 117.4016-72.3968 72.3968L30.0032 512l240.9984-240.9984 72.3968 72.3968L225.9968 460.8h572.0064l-117.4016-117.4016 72.3968-72.3968L993.9968 512z"/></svg></span>
             <input type="number" id="in-distance" step="1">
             <button class="ulock" data-k="distance" title="锁定此量（最多锁一个）"></button>
             <select id="u-distance"><optgroup label="长度 · 公制"><option value="millimeters">毫米 mm</option><option value="centimeters">厘米 cm</option><option value="meters">米 m</option><option value="kilometers">千米 km</option></optgroup><optgroup label="长度 · 英制/印刷"><option value="inches">英寸 in</option><option value="feet">英尺 ft</option><option value="yards">码 yd</option><option value="miles">英里 mi</option><option value="points">点 pt</option><option value="picas">皮卡 pc</option><option value="lightyears">光年 ly</option></optgroup></select>
-            <span class="slide-rail"></span>
           </div>
         </div>
         <div class="ctrl" data-k="size">
-          <div class="field-label" data-drag="size" title="按住标签左右拖动调节高度">高度</div>
-          <div class="cell" id="cell-size" title="按住上方高度标签左右拖动调节">
+          <div class="field-label" data-drag="size">高度</div>
+          <div class="cell" id="cell-size" title="点数字直接输入；按住左侧图标左右拖动调节高度">
             <span class="field-ico"><svg viewBox="0 0 1024 1024"><path d="M558.7968 128H563.2v4.4032l189.7984 189.7984-72.3968 72.3968L563.2 277.1968v469.6064l117.4016-117.4016 72.3968 72.3968L563.2 891.5968V896h-4.4032L512 942.7968 465.2032 896H460.8v-4.4032l-189.7984-189.7984 72.3968-72.3968L460.8 746.8032V277.1968l-117.4016 117.4016-72.3968-72.3968L460.8 132.4032V128h4.4032L512 81.2032 558.7968 128z"/></svg></span>
             <input type="number" id="in-size" step="1">
             <button class="ulock" data-k="size" title="锁定此量（最多锁一个）"></button>
             <select id="u-size"><optgroup label="长度 · 公制"><option value="millimeters">毫米 mm</option><option value="centimeters">厘米 cm</option><option value="meters">米 m</option><option value="kilometers">千米 km</option></optgroup><optgroup label="长度 · 英制/印刷"><option value="inches">英寸 in</option><option value="feet">英尺 ft</option><option value="yards">码 yd</option><option value="miles">英里 mi</option><option value="points">点 pt</option><option value="picas">皮卡 pc</option><option value="lightyears">光年 ly</option></optgroup></select>
-            <span class="slide-rail"></span>
           </div>
         </div>
       </div>
@@ -390,8 +669,11 @@
         <div class="concl" id="concl"></div>
         <svg id="viz" viewBox="-200 0 860 380" preserveAspectRatio="xMidYMid meet" role="img" aria-label="视角示意图">
           <defs>
-            <marker id="ar-red" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L6,3 L0,6 z" fill="#ef4444"/></marker>
-            <marker id="ar-blue" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0 L6,3 L0,6 z" fill="#2563eb"/></marker>
+            <marker id="ar-red" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L6,3 L0,6 z" fill="#ef4444"/></marker>
+            <marker id="ar-blue" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0 L6,3 L0,6 z" fill="#2563eb"/></marker>
+            <!-- 命中高亮时放大的箭头 -->
+            <marker id="ar-red-lg" markerWidth="11" markerHeight="11" refX="11" refY="5.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L11,5.5 L0,11 z" fill="#dc2626"/></marker>
+            <marker id="ar-blue-lg" markerWidth="11" markerHeight="11" refX="11" refY="5.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0 L11,5.5 L0,11 z" fill="#1d4ed8"/></marker>
             <clipPath id="viz-clip"><rect x="-200" y="0" width="860" height="380"/></clipPath>
           </defs>
             <g id="person" transform="translate(0,0) scale(0.3)">
@@ -420,9 +702,9 @@
             <text id="personH" font-family="system-ui,sans-serif" font-size="12" fill="#64748b" text-anchor="middle">170cm</text>
           </g>
           <g font-family="system-ui,-apple-system,sans-serif" text-anchor="middle">
-            <text id="val-ang" x="150" y="164" fill="#16a34a" font-size="15" font-weight="700" text-anchor="middle" style="transition:font-size .12s">—</text>
-            <text id="val-dist" x="390" y="164" fill="#ef4444" font-size="15" font-weight="700" text-anchor="middle" style="transition:font-size .12s">—</text>
-            <text id="val-size" x="630" y="164" fill="#2563eb" font-size="15" font-weight="700" text-anchor="middle" style="transition:font-size .12s">—</text>
+            <text id="val-ang" x="150" y="164" fill="#16a34a" font-size="10" font-weight="400" text-anchor="middle" paint-order="stroke" stroke="#f3f3f3" stroke-width="4" stroke-linejoin="round" style="transition:font-size .12s">—</text>
+            <text id="val-dist" x="390" y="164" fill="#ef4444" font-size="10" font-weight="400" text-anchor="middle" paint-order="stroke" stroke="#f3f3f3" stroke-width="4" stroke-linejoin="round" style="transition:font-size .12s">—</text>
+            <text id="val-size" x="630" y="164" fill="#2563eb" font-size="10" font-weight="400" text-anchor="middle" paint-order="stroke" stroke="#f3f3f3" stroke-width="4" stroke-linejoin="round" style="transition:font-size .12s">—</text>
           </g>
         </svg>
       </div>
@@ -432,17 +714,19 @@
 
   <div class="right">
   <div class="panel pcbar">
-    <div class="sec-title">媒介信息 <span class="tag2">选画布预设，下方参数自动填入 · 电子用像素 / 印刷用物理尺寸</span></div>
-    <div class="pcgrp" style="margin-bottom:9px">
-      <div class="glab">画布预设 <span class="gsub">仿 Figma 画布分组 · 选一个自动切换电子 / 印刷并填参数</span></div>
-      <div class="pcinp"><select id="pc-model" style="width:100%"></select></div>
+    <div class="sec-title">媒介信息</div>
+    <div class="medium-radio" id="medium-radio">
+      <label class="mr on"><input type="radio" name="medium" value="e" checked> 电子媒介</label>
+      <label class="mr"><input type="radio" name="medium" value="p"> 印刷媒介</label>
     </div>
+    <div class="pcinp"><select id="pc-model" style="width:100%"></select></div>
+    <div class="sep"></div>
 
     <!-- ============ 电子设备 ============ -->
     <div id="mode-electronic">
       <div class="pcgrid">
         <div class="pcgrp">
-          <div class="glab">物理分辨率 <span class="gsub">面板原生像素</span></div>
+          <div class="glab">物理分辨率</div>
           <div class="pcinp">
             <label class="whinp"><span class="wh-pre">W</span><input type="number" id="pc-pw" value="2560" min="1"></label>
             <span class="x">×</span>
@@ -450,7 +734,7 @@
           </div>
         </div>
         <div class="pcgrp">
-          <div class="glab">逻辑分辨率 <span class="gsub">渲染/截图像素</span></div>
+          <div class="glab">逻辑分辨率</div>
           <div class="pcinp">
             <label class="whinp"><span class="wh-pre">W</span><input type="number" id="pc-lw" value="2880" min="1"></label>
             <span class="x">×</span>
@@ -458,14 +742,13 @@
           </div>
         </div>
         <div class="pcgrp">
-          <div class="glab">倍率 DPR <span class="gsub">逻辑 ÷ 界面点</span></div>
-          <div class="pcinp"><select id="pc-dpr"><option value="1">1x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2" selected>2x</option><option value="3">3x</option></select></div>
-        </div>
-        <div class="pcgrp">
-          <div class="glab">屏幕尺寸 <span class="gsub">对角线 · 可切换单位 / 展开宽高</span></div>
+          <div class="glab">屏幕尺寸</div>
           <div class="pcinp">
-            <input type="number" id="pc-inch" value="13.3" min="1" step="0.1" title="屏幕对角线">
-            <select id="u-pc-inch" title="屏幕尺寸单位"><option value="inches" selected>英寸 ″</option><option value="centimeters">cm</option><option value="millimeters">mm</option></select>
+            <label class="uni-field">
+              <span class="uf-ico"><svg viewBox="0 0 1024 1024"><path d="M558.7968 128H563.2v4.4032l189.7984 189.7984-72.3968 72.3968L563.2 277.1968v469.6064l117.4016-117.4016 72.3968 72.3968L563.2 891.5968V896h-4.4032L512 942.7968 465.2032 896H460.8v-4.4032l-189.7984-189.7984 72.3968-72.3968L460.8 746.8032V277.1968l-117.4016 117.4016-72.3968-72.3968L460.8 132.4032V128h4.4032L512 81.2032 558.7968 128z"/></svg></span>
+              <input type="number" id="pc-inch" value="13.3" min="1" step="0.1" title="屏幕对角线">
+              <select id="u-pc-inch" title="屏幕尺寸单位"><option value="inches" selected>英寸</option><option value="centimeters">cm</option><option value="millimeters">mm</option></select>
+            </label>
             <button type="button" class="dim-toggle" id="dim-toggle" title="展开/收起物理宽高" aria-label="展开物理宽高">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M2 6V3.5A1.5 1.5 0 0 1 3.5 2H6M10 2h2.5A1.5 1.5 0 0 1 14 3.5V6M14 10v2.5a1.5 1.5 0 0 1-1.5 1.5H10M6 14H3.5A1.5 1.5 0 0 1 2 12.5V10"/></svg>
             </button>
@@ -476,18 +759,27 @@
               <label class="whinp"><span class="wh-pre">W</span><input type="number" id="pc-cw" value="28.6" min="0.1" step="0.1"></label>
               <span class="x">×</span>
               <label class="whinp"><span class="wh-pre">H</span><input type="number" id="pc-ch" value="17.9" min="0.1" step="0.1"></label>
-              <select id="u-pc-wh" title="宽高单位"><option value="centimeters" selected>cm</option><option value="inches">英寸 ″</option><option value="millimeters">mm</option></select>
+              <select id="u-pc-wh" title="宽高单位"><option value="centimeters" selected>cm</option><option value="inches">英寸</option><option value="millimeters">mm</option></select>
             </div>
           </div>
         </div>
       </div>
-      <div class="derived"><span class="dk">界面点 / CSS px（逻辑 ÷ 倍率）= 画布设计尺寸</span><span class="dv" id="pc-css">—</span></div>
+      <div class="sep"></div>
+      <div class="vrow dpr-row">
+        <div class="pcgrp">
+          <div class="glab">倍率 DPR</div>
+          <div class="pcinp"><select id="pc-dpr"><option value="1">1x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2" selected>2x</option><option value="3">3x</option></select></div>
+        </div>
+        <div class="pcgrp">
+          <div class="glab">界面点 / CSS px（逻辑 ÷ 倍率）=</div>
+          <div class="pcinp"><span class="dv" id="pc-css">—</span></div>
+        </div>
+      </div>
+      <div class="sep"></div>
       <div class="pxlist">
-        <div class="px-cap">每 1px 的绝对物理尺寸</div>
         <div class="pxrow"><span class="k">物理像素（发光点）</span><span class="v" id="pc-r1">—</span></div>
         <div class="pxrow"><span class="k">逻辑像素（渲染点）</span><span class="v" id="pc-r2">—</span></div>
         <div class="pxrow"><span class="k">界面点（CSS px）</span><span class="v" id="pc-r3">—</span></div>
-        <div class="scale-line" id="pc-line">屏幕 — · PPI — · 渲染缩放 —</div>
       </div>
     </div>
 
@@ -495,22 +787,13 @@
     <div id="mode-print" style="display:none">
       <div class="pcgrid">
         <div class="pcgrp">
-          <div class="glab">物理尺寸 <span class="gsub">宽 × 高 cm</span></div>
+          <div class="glab">物理尺寸</div>
           <div class="pcinp"><input type="number" id="pr-w" value="21" min="0.1" step="0.1"><span class="x">×</span><input type="number" id="pr-h" value="29.7" min="0.1" step="0.1"></div>
         </div>
         <div class="pcgrp">
-          <div class="glab">DPI <span class="gsub">印刷解像度</span></div>
+          <div class="glab">DPI</div>
           <div class="pcinp"><input type="number" id="pr-dpi" value="300" min="1" step="1"><span class="x">dpi</span></div>
         </div>
-      </div>
-      <div class="pcres" style="margin-top:9px">
-        <div class="glab">印刷中的像素与尺寸 <span class="gsub" style="font-weight:400;color:var(--muted)">Figma 用像素标注纸张，这里改用物理尺寸；成品像素由 DPI 决定</span></div>
-        <div class="grid3">
-          <div class="cell2"><div class="k">1px 的物理尺寸</div><div class="v" id="pr-r1">—</div></div>
-          <div class="cell2"><div class="k">成品所需像素</div><div class="v" id="pr-r2">—</div></div>
-          <div class="cell2"><div class="k">每厘米像素数</div><div class="v" id="pr-r3">—</div></div>
-        </div>
-        <div class="scale-line" id="pr-line">尺寸 — × — cm · DPI —</div>
       </div>
     </div>
   </div>
@@ -576,27 +859,165 @@
 
 <!-- ============ 页面2：展示页面（电脑效果展示区） ============ -->
 <div id="page-show" class="page">
-  <div class="showpage-stage">
-    <div class="panel">
-      <div class="sec-title">展示页面 <span class="tag2">同一视角下的屏幕等效效果 · 屏幕物理高度 / 观看距离 / 等效像素高度</span></div>
-      <div class="rinput">
-        <select id="res">
-          <option value="1920x1080">1920 × 1080</option>
-          <option value="2560x1440">2560 × 1440</option>
-          <option value="3840x2160">3840 × 2160</option>
-          <option value="1280x720">1280 × 720</option>
-        </select>
-        <input type="number" id="ppi" value="96" min="1" step="1" title="PPI">
+<!-- 全窗口展示层：铺满浏览器窗口，图片在此居中缩放；其他 UI 悬浮其上 -->
+<div class="show-stage-wrap" id="show-stage-wrap">
+  <div class="monitor" id="monitor">
+    <img id="show-img" alt="图片预览" hidden>
+  </div>
+  <!-- 图片信息入口：画布右上角悬浮（导航栏下方） -->
+  <div class="entry-wrap" id="img-entry" hidden>
+    <div class="entry-pill">
+      <span class="entry-label">图片信息</span>
+      <label class="entry-up" for="img-upload"><svg viewBox="0 0 24 24"><path d="M12 16V4M12 4l-4 4M12 4l4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>上传</label>
+      <button type="button" class="entry-set" data-bubble="bubble-image"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.98 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.98a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.02 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.03A1.7 1.7 0 0 0 20.96 10.1H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z"/></svg>设置</button>
+    </div>
+    <div class="pop-bubble" id="bubble-image">
+<div class="panel">
+  <div class="sec-title">图片信息</div>
+  <div class="im-ok" id="im-ok" hidden>图片上传成功</div>
+  <!-- 默认态：描边式上传按钮（省空间，无占位大框） -->
+  <label class="img-upbtn" id="img-upbtn" for="img-upload">
+    <svg viewBox="0 0 1024 1024"><path d="M149.3 128h725.3c33.6 0 61.3 27.7 61.3 61.3v645.3c0 33.6-27.7 61.3-61.3 61.3H149.3c-33.6 0-61.3-27.7-61.3-61.3V189.3C88 155.7 115.7 128 149.3 128zm36.8 72.5l238.9 246.1 134.6-138.7 236.1 262.7V200.5H186.1zm-36.8 577.5h682.7l-196.3-218.7-134.8 138.9L330.6 576 149.3 778zM716.8 320a51.2 51.2 0 1 0 0 102.4 51.2 51.2 0 0 0 0-102.4z"/></svg>
+    <span id="img-upbtn-text">上传图片</span>
+  </label>
+  <input type="file" id="img-upload" accept="image/*" hidden>
+  <input type="hidden" id="im-pw" value="2880"><input type="hidden" id="im-ph" value="1800">
+  <!-- 上传后：完整信息 -->
+  <div class="img-fields" id="img-fields" hidden>
+    <!-- 图片信息（自动获取） -->
+    <div class="im-h2">图片信息（自动获取）</div>
+    <div class="kv im-pxrow"><span class="k">图片像素值</span><span class="v" id="im-px-auto">—</span></div>
+    <div class="sd-sep"></div>
+    <!-- 应用设备信息 -->
+    <div class="im-h2">应用设备信息</div>
+    <div class="im-radio" id="im-medium-radio">
+      <label class="imr on"><input type="radio" name="im-medium" value="device" checked>电子媒介</label>
+      <label class="imr"><input type="radio" name="im-medium" value="print">印刷媒介</label>
+    </div>
+    <select id="im-model" class="sd-model-sel" title="选择图片应用的目标设备预设"></select>
+    <div class="sd-sep"></div>
+    <!-- 应用尺寸信息 -->
+    <div class="im-h2 im-h2-row">应用尺寸信息<span class="im-hint">这里联动根据图片像素比例</span></div>
+    <div class="sd-wh im-size-wh">
+      <label class="whinp"><span class="wh-pre sd-drag" data-sd="im-size-w" title="左右拖动调节">W</span><input type="number" id="im-size-w" value="2560" min="1"></label>
+      <span class="x">×</span>
+      <label class="whinp"><span class="wh-pre sd-drag" data-sd="im-size-h" title="左右拖动调节">H</span><input type="number" id="im-size-h" value="1600" min="1"></label>
+      <select id="u-im-size" class="sd-inline-sel im-size-u" title="应用尺寸单位" hidden><option value="centimeters" selected>厘米</option><option value="millimeters">毫米</option><option value="inches">英寸</option></select>
+    </div>
+    <div class="sd-fold">
+      <div class="sd-fold-title">应用设备与物理尺寸</div>
+      <div id="im-dev-fields">
+        <div class="sd-grp">
+          <div class="sd-lab">应用设备物理分辨率</div>
+          <div class="sd-wh">
+            <label class="whinp"><span class="wh-pre">W</span><input type="number" id="im-dev-rw" value="2560" min="1" readonly></label>
+            <span class="x">×</span>
+            <label class="whinp"><span class="wh-pre">H</span><input type="number" id="im-dev-rh" value="1600" min="1" readonly></label>
+          </div>
+        </div>
+        <div class="sd-grp">
+          <div class="sd-lab">应用设备逻辑分辨率</div>
+          <div class="sd-wh">
+            <label class="whinp"><span class="wh-pre">W</span><input type="number" id="im-dev-lw" value="2880" min="1" readonly></label>
+            <span class="x">×</span>
+            <label class="whinp"><span class="wh-pre">H</span><input type="number" id="im-dev-lh" value="1800" min="1" readonly></label>
+          </div>
+        </div>
+        <div class="sd-grp">
+          <div class="sd-lab">应用设备屏幕尺寸</div>
+          <div class="sd-wh">
+            <label class="uni-field"><span class="uf-ico"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2l3 0 0 1.4L3.8 3.4 6.4 6 5.4 7 2.8 4.4 2.8 5 1.4 5zM14 14l-3 0 0-1.4 1.2 0L9.6 10l1-1 2.6 2.6 0-.6 1.4 0z"/></svg></span><input type="number" id="im-dev-inch" value="13.3" min="0.1" step="0.1" readonly><span class="sd-inline-sel im-dev-u">英寸</span></label>
+          </div>
+        </div>
       </div>
-      <div class="mini">分辨率 / PPI</div>
-      <div class="monitor"><div class="monitor-box" id="mbox"></div></div>
-      <div class="kv"><span class="k">屏幕物理高度</span><span class="v" id="o-ph">—</span></div>
-      <div class="kv"><span class="k">人眼到屏幕距离</span><span class="v" id="o-dist">—</span></div>
-      <div class="kv"><span class="k">等效像素高度</span><span class="v" id="o-px">—</span></div>
-      <div class="kv"><span class="k">当前视角</span><span class="v" id="o-ang">—</span></div>
-      <div class="note">由分辨率与 PPI 得屏幕物理高度；在当前视角下算出人眼距屏幕的距离；再把视角里的物理尺寸换算成屏幕上的像素高度，画进上方屏幕。分辨率与 PPI 可在上方调整，也可由左侧「示意界面」选的画布自动带入。</div>
+      <div id="im-derived">
+        <div class="kv im-pxrow"><span class="k">物理尺寸（自动生成）</span><span class="v" id="im-phys">—</span></div>
+        <div class="im-footnote">根据逻辑像素颗粒大小自动算出</div>
+      </div>
     </div>
   </div>
+</div>
+    </div><!-- /bubble-image -->
+  </div><!-- /entry-wrap image -->
+  <div class="show-readout" id="show-readout" hidden>
+    <div data-hl="window">当前窗口像素(CSS像素数)：<span id="ro-px">—</span></div>
+    <div data-hl="window">当前窗口逻辑像素数：<span id="ro-logpx">—</span></div>
+    <div data-hl="point">逻辑像素尺寸：<span id="ro-grain">—</span></div>
+    <div data-hl="window">当前窗口实际尺寸：<span id="ro-disp">—</span></div>
+    <div data-hl="image">图片整体显示尺寸：<span id="ro-imgall">—</span></div>
+  </div>
+  <div class="ro-hl" id="ro-hl"><span class="ro-hl-tag" id="ro-hl-tag"></span></div>
+  <div class="img-minimap" id="img-minimap" title="点击或拖动选择查看区域">
+    <div class="mm-stage" id="mm-stage"><img id="mm-img" alt="缩略导航"><div class="mm-view" id="mm-view"></div></div>
+    <div class="mm-cap">缩略导航</div>
+  </div>
+</div>
+<div class="stage">
+  <div class="left show-left">
+    <div class="show-main">
+      <!-- 初始态：居中上传入口 -->
+      <div class="show-empty" id="show-empty">
+        <svg class="big-ph" viewBox="0 0 1024 1024"><path d="M149.3 128h725.3c33.6 0 61.3 27.7 61.3 61.3v645.3c0 33.6-27.7 61.3-61.3 61.3H149.3c-33.6 0-61.3-27.7-61.3-61.3V189.3C88 155.7 115.7 128 149.3 128zm36.8 72.5l238.9 246.1 134.6-138.7 236.1 262.7V200.5H186.1zm-36.8 577.5h682.7l-196.3-218.7-134.8 138.9L330.6 576 149.3 778zM716.8 320a51.2 51.2 0 1 0 0 102.4 51.2 51.2 0 0 0 0-102.4z"/></svg>
+        <label class="big-up-btn" for="img-upload">上传图片</label>
+      </div>
+
+      <!-- 上传后：完整展示界面 -->
+      <div class="show-body" id="show-body" hidden>
+        <div class="show-mode-pill" id="show-mode">
+          <button type="button" class="sm-btn active" data-mode="angle">等比展示</button>
+          <button type="button" class="sm-btn" data-mode="size">等尺寸展示</button>
+        </div>
+        <div class="stage-placeholder" id="stage-placeholder"></div>
+        <div class="float-dists">
+          <div class="sf">
+            <span class="sf-k fd-red">显示设备距离</span>
+            <div class="sf-in"><span class="fd-ico">↔</span><input type="number" id="sd-dist" value="1234" min="0.1" step="0.1"><select id="u-sd-dist" class="fd-unit"><option value="millimeters" selected>毫米</option><option value="centimeters">厘米</option><option value="meters">米</option></select></div>
+          </div>
+          <div class="sf">
+            <span class="sf-k fd-blue">图片距离</span>
+            <div class="sf-in"><span class="fd-ico">↔</span><input type="number" id="im-dist" value="3234" min="0.1" step="0.1"><select id="u-im-dist" class="fd-unit"><option value="millimeters" selected>毫米</option><option value="centimeters">厘米</option><option value="meters">米</option></select></div>
+          </div>
+        </div>
+        <div class="show-tri-bar">
+          <svg id="show-tri" viewBox="0 0 900 200" preserveAspectRatio="none">
+            <!-- 视轴红线 -->
+            <line id="st-axis" x1="70" y1="100" x2="860" y2="100" stroke="#ef4444" stroke-width="1" vector-effect="non-scaling-stroke" marker-end="url(#ar-red)"/>
+            <!-- 张角绿虚线（两条视线，共用视点） -->
+            <line id="st-green-top" x1="70" y1="100" x2="860" y2="30" stroke="#16a34a" stroke-width="1" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/>
+            <line id="st-green-bot" x1="70" y1="100" x2="860" y2="170" stroke="#16a34a" stroke-width="1" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/>
+            <!-- 视角填充 -->
+            <polygon id="st-fill" points="70,100 860,30 860,170" fill="rgba(16,185,129,.08)" stroke="none"/>
+            <!-- 图片位置蓝线（更远，两端箭头） -->
+            <line id="st-img-line" x1="860" y1="30" x2="860" y2="170" stroke="#2563eb" stroke-width="2" vector-effect="non-scaling-stroke" marker-start="url(#ar-blue)" marker-end="url(#ar-blue)"/>
+            <!-- 显示设备位置红线（更近，底端箭头） -->
+            <line id="st-dev-line" x1="430" y1="0" x2="430" y2="0" stroke="#ef4444" stroke-width="2" vector-effect="non-scaling-stroke" marker-end="url(#ar-red)"/>
+            <!-- 悬停拖动柄：红=设备距离，蓝=图片距离 -->
+            <g class="st-grip" id="st-dev-grip" data-dist="sd-dist">
+              <rect class="st-grip-hit" x="-13" y="-18" width="26" height="36"/>
+              <circle class="st-grip-dot" cx="0" cy="0" r="9" fill="#ef4444"/>
+              <path class="st-grip-arrow" d="M-5 0h10M-5 0l2.5-2.5M-5 0l2.5 2.5M5 0L2.5-2.5M5 0L2.5 2.5" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+            <g class="st-grip" id="st-img-grip" data-dist="im-dist">
+              <rect class="st-grip-hit" x="-13" y="-18" width="26" height="36"/>
+              <circle class="st-grip-dot" cx="0" cy="0" r="9" fill="#2563eb"/>
+              <path class="st-grip-arrow" d="M-5 0h10M-5 0l2.5-2.5M-5 0l2.5 2.5M5 0L2.5-2.5M5 0L2.5 2.5" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+            <!-- 视点：灰色人物剪影（看着右方） -->
+            <g id="st-person"><path d="M0,0 c-6,0 -10,5 -10,11 c0,4 2,7 5,9 l-1,4 c-8,2 -13,8 -14,16 l-2,26 l-1,20 l6,0 l3,-22 l3,-16 l2,14 l0,24 l6,0 l1,-24 l2,-14 l3,16 l3,22 l6,0 l-1,-20 l-2,-26 c-1,-8 -6,-14 -14,-16 l-1,-4 c3,-2 5,-5 5,-9 c0,-6 -4,-11 -10,-11 z" fill="#c9ced6" transform="translate(70,100) scale(0.9)"/></g>
+            <!-- 角度标注 -->
+            <text id="st-ang" x="74" y="88" fill="#16a34a" font-size="12" font-weight="700">∠ —</text>
+            <!-- 图片距离/高度标注（蓝） -->
+            <text id="st-img-dist" x="0" y="0" fill="#2563eb" font-size="11" text-anchor="middle">—</text>
+            <text id="st-img-h" x="0" y="0" fill="#2563eb" font-size="11" text-anchor="middle">—</text>
+            <!-- 显示设备距离/高度标注（红） -->
+            <text id="st-dev-dist" x="0" y="0" fill="#ef4444" font-size="11" text-anchor="middle">—</text>
+            <text id="st-dev-h" x="0" y="0" fill="#ef4444" font-size="11" text-anchor="middle">—</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 </div>
 
 <script>
@@ -641,7 +1062,16 @@ function fmt(v){
   if(Math.abs(v)>=1e-4)return String(parseFloat(v.toPrecision(2)));
   return v.toExponential(1);
 }
-function write(k,b){$('in-'+k).value=(b===null||!isFinite(b))?'':fmt(b/factor(k));}
+/* 数值格式化：
+   - isCalc=true（联动算出来的字段）→ 三位小数，看清变化
+   - 否则角度在"度"单位保留一位小数，其余字段沿用 fmt（整数） */
+function fmtVal(k,v,isCalc){
+  if(v===null||!isFinite(v))return fmt(v);
+  if(isCalc)return v.toFixed(3);
+  if(k==='angle'&&$('u-angle').value==='degrees')return v.toFixed(1);
+  return fmt(v);
+}
+function write(k,b,isCalc){$('in-'+k).value=(b===null||!isFinite(b))?'':fmtVal(k,b/factor(k),isCalc);}
 function applyLink(t){
   driver=t;
   if(userLock&&userLock!==t){
@@ -676,7 +1106,7 @@ function recalc(trigger){
       else if(out==='distance'&&S!==null&&A!==null&&S>0&&A>0&&A<Math.PI)r=S/(2*Math.tan(A/2));
       if(r!==null){const [lo,hi]=RANGE[out];r=clamp(r,lo,hi);}  // 算出结果也卡在区间
       baseVals[out]=r;
-      if(out!==trigger)write(out,r);   // out 若是正在编辑的框也不写回
+      if(out!==trigger)write(out,r,true);   // 联动算出的字段：三位小数显示；若正在编辑的框则不写回
     }
   }
   KEYS.forEach(k=>{if(k!==out&&baseVals[k]===null)baseVals[k]=read(k);});
@@ -685,9 +1115,12 @@ function recalc(trigger){
 function render(){
   KEYS.forEach(k=>{
     const cell=$('cell-'+k);
-    cell.classList.toggle('is-locked',userLock===k);
+    const lockedByUser=(userLock===k);
+    cell.classList.toggle('is-locked',lockedByUser);
+    // 主动锁定的字段不可编辑：只读输入框（禁键盘/角标）、图标禁拖动
+    $('in-'+k).readOnly=lockedByUser;
     const ub=document.querySelector('.ulock[data-k="'+k+'"]');
-    if(ub)ub.classList.toggle('on',userLock===k);
+    if(ub)ub.classList.toggle('on',lockedByUser);
     // 滑块仍随值同步（内部保留但界面不显示）
     const sl=$('sl-'+k);
     if(sl){const b=baseVals[k];if(b!==null&&isFinite(b)&&b>0){
@@ -700,8 +1133,8 @@ function render(){
   for(const k of KEYS){
     const el=$(VALMAP[k]);
     if(!el)continue;
-    el.setAttribute('font-size',adjusting&&k===driver?'23':'15');
-    el.setAttribute('font-weight',adjusting&&k===driver?'800':'700');
+    el.setAttribute('font-size',adjusting&&k===driver?'16':'10');
+    el.setAttribute('font-weight',adjusting&&k===driver?'700':'400');
     el.style.opacity=adjusting?(k===driver?'1':'.55'):'1';
   }
   drawViz();drawMonitor();
@@ -764,18 +1197,18 @@ function paintViz(D,S,A){
   setA('dim-size-line',{x1:hx,y1:g.top,x2:hx,y2:g.bot});
   setA('dim-size-t',{x1:hx-tick,y1:g.top,x2:hx+tick,y2:g.top});
   setA('dim-size-b',{x1:hx-tick,y1:g.bot,x2:hx+tick,y2:g.bot});
-  // 距离数字：底部尺寸线中点
+  // 距离数字：压在底部尺寸线正中间（白描边让线在数字处断开）
   $('val-dist').textContent=fmt(D/LEN[du]);
   $('val-dist').setAttribute('x',((sx+ex)/2).toFixed(1));
-  $('val-dist').setAttribute('y',dimY-4);
+  $('val-dist').setAttribute('y',(dimY+3.5).toFixed(1));
   $('val-dist').setAttribute('text-anchor','middle');
-  // 高度数字：右侧尺寸线中点
+  // 高度数字：压在右侧尺寸线正中间
   $('val-size').textContent=fmt(S/LEN[su]);
-  $('val-size').setAttribute('x',(hx+12).toFixed(1));
-  $('val-size').setAttribute('y',((g.top+g.bot)/2+5).toFixed(1));
-  $('val-size').setAttribute('text-anchor','start');
-  // 视角数字：紧贴眼睛红点右上方
-  $('val-ang').textContent=fmt(A/ANG[au]);
+  $('val-size').setAttribute('x',hx.toFixed(1));
+  $('val-size').setAttribute('y',((g.top+g.bot)/2+3.5).toFixed(1));
+  $('val-size').setAttribute('text-anchor','middle');
+  // 视角数字：加角度符号 ∠，紧贴眼睛红点右上方；角度为联动输出时显示三位小数
+  $('val-ang').textContent='∠ '+fmtVal('angle',A/ANG[au],solveFor==='angle');
   $('val-ang').setAttribute('x',(EYE.x+20).toFixed(1));
   $('val-ang').setAttribute('y',(EYE.y-10).toFixed(1));
   $('val-ang').setAttribute('text-anchor','start');
@@ -891,24 +1324,231 @@ function drawViz(){
   if(!adjusting && anim===null)animateTo(D,S,A); // 非调整期直接动画到结果
   else animateTo(D,S,A);
 }
+// 图片平移状态：整块窗口拖拽平移，缩略导航同步
+const imgPan={x:0,y:0};
+function applyImgPan(){
+  const img=$('show-img'),shell=$('show-stage-wrap'),monitor=$('monitor'),ph=$('stage-placeholder');
+  if(!img||!shell)return;
+  const iw=img.offsetWidth,ih=img.offsetHeight,sw=shell.clientWidth,sh=shell.clientHeight;
+  // 图片中心锚点 = 占位区(原展示区)中心，而非整窗口中心
+  let ax=0,ay=0;
+  if(ph){
+    const sr=shell.getBoundingClientRect(),pr=ph.getBoundingClientRect();
+    ax=(pr.left+pr.width/2)-(sr.left+sw/2);
+    ay=(pr.top+pr.height/2)-(sr.top+sh/2);
+  }
+  // 可平移范围：让图片上下左右任一边都能拖到贴齐窗口对应边，不再只在「图大于窗口」时才可拖。
+  // 图片相对窗口中心的位移 = 锚点偏移(ax,ay) + imgPan。
+  // 要让图片顶边贴窗口顶：位移 = (sh-ih)/2-ay → 这是 imgPan.y 的下限(可拖到的最上)；
+  // 要让图片底边贴窗口底：位移 = (ih-sh)/2-ay → 上限。水平同理。
+  // 若区间翻转（图比窗口小，贴齐无意义）则锁到「图片居中于窗口」的位移，即 -ay/-ax。
+  const loY=(sh-ih)/2-ay, hiY=(ih-sh)/2-ay;
+  const loX=(sw-iw)/2-ax, hiX=(iw-sw)/2-ax;
+  imgPan.y=Math.max(loY,Math.min(hiY,imgPan.y));
+  imgPan.x=Math.max(loX,Math.min(hiX,imgPan.x));
+  img.style.transform='translate('+(ax+imgPan.x)+'px,'+(ay+imgPan.y)+'px)';
+  // 只要图片任一方向超出窗口（含锚点偏移造成的溢出）就允许拖动
+  const canPan=hiX-loX>1||hiY-loY>1;
+  if(monitor)monitor.classList.toggle('can-pan',canPan);
+  syncMinimap(iw,ih,sw,sh,ax,ay,loX,hiX,loY,hiY);
+}
+// 缩略导航：迷你图按图片比例铺满，视口框随平移同步
+function syncMinimap(iw,ih,sw,sh,ax,ay,loX,hiX,loY,hiY){
+  const mini=$('img-minimap'),stage=$('mm-stage'),mmImg=$('mm-img'),view=$('mm-view');
+  if(!mini||!stage||!mmImg||!view)return;
+  const canPan=hiX-loX>1||hiY-loY>1;
+  mini.classList.toggle('show',canPan);
+  if(!canPan||!iw||!ih)return;
+  // 迷你舞台按图片比例定高（宽度固定由 CSS 决定）
+  const mw=stage.clientWidth||120,mh=mw*(ih/iw);
+  stage.style.height=mh+'px';
+  mmImg.src=$('show-img').src;
+  const scale=mw/iw;                       // 迷你图缩放比
+  const vw=Math.min(sw*scale,mw),vh=Math.min(sh*scale,mh);
+  view.style.width=vw+'px';view.style.height=vh+'px';
+  // 图片相对窗口的位移 = ax+imgPan.x（y 同理）。图片中心在迷你图的 mw/2 + 位移*scale，
+  // 视口(窗口)中心固定在迷你图中心 → 视口框中心 = mw/2 - 位移*scale。
+  const cx=mw/2-(ax+imgPan.x)*scale,cy=mh/2-(ay+imgPan.y)*scale;
+  view.style.left=Math.max(0,Math.min(mw-vw,cx-vw/2))+'px';
+  view.style.top=Math.max(0,Math.min(mh-vh,cy-vh/2))+'px';
+}
+// 浮层定位：读数块/缩略图相对「右侧信息栏左边缘」「底部视角条上边缘」动态避让，
+// 不再用固定 right:282px（信息栏位置随窗口宽度变化，固定值会被遮挡）。
+function positionFloatOverlays(){
+  // 右侧信息改为右上角气泡入口后，不再有常驻信息栏需避让：
+  // 读数固定右上角(入口下方，CSS top:58/right:14)，缩略图固定右下角(right:14)，仅垂直避开底部视角条。
+  const mm=$('img-minimap'),tri=document.querySelector('.show-tri-bar');
+  if(mm&&tri){
+    const t=tri.getBoundingClientRect();
+    // 视角图隐藏（等尺寸展示）时，缩略图贴回窗口右下角
+    mm.style.bottom=(t.height>0?Math.max(8,(window.innerHeight-t.top)+8):8)+'px';
+  }
+}
 function drawMonitor(){
-  const A=baseVals.angle,S=baseVals.size;
-  if(!(A>0&&A<Math.PI&&S>0))return;
-  const p=$('res').value.split('x'),W=+p[0],H=+p[1],ppi=Math.max(1,+$('ppi').value||96);
-  const hmm=H/ppi*25.4;
-  const dist=hmm/1000/(2*Math.tan(A/2));
-  const px=S/(hmm/1000)*H;
-  const box=$('mbox'),ratio=clamp(px/H*100,2,94);
-  box.style.height=ratio+'%';
-  box.style.width=Math.max(10,Math.min(70,ratio*1.3))+'%';
-  $('o-ph').textContent=fmt(hmm)+' mm';
-  $('o-dist').textContent=fmt(dist*1000)+' mm ('+fmt(dist)+' m)';
-  $('o-px').textContent=fmt(px)+' px';
-  $('o-ang').textContent=fmt(A*180/Math.PI)+' °';
+  const set=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
+  positionFloatOverlays();   // 浮层避让信息栏/视角条（放在早退之前，始终定位）
+  const num=id=>{const e=$(id);const v=e?parseFloat(e.value):NaN;return isFinite(v)&&v>0?v:null;};
+  // === 显示设备：物理/逻辑分辨率 + 对角线 → PPI、CSS px、每像素尺寸 ===
+  const rw=num('sd-rw'),rh=num('sd-rh'),lw=num('sd-lw'),lh=num('sd-lh');
+  const inchRaw=num('sd-inch');
+  const inch=inchRaw?inchRaw*LEN[$('u-sd-inch').value]/0.0254:null;   // 统一成英寸
+  if(!(rw&&rh&&inch))return;
+  const ppi=Math.hypot(rw,rh)/inch;               // 屏幕每英寸像素
+  const dpr=parseFloat($('sd-dpr').value)||1;
+  // 两个观看距离：按各自单位换算成米
+  const sdDistM=(num('sd-dist')||1234)*LEN[$('u-sd-dist').value];
+  const imDistM=(num('im-dist')||3234)*LEN[$('u-im-dist').value];
+  // 界面点 / CSS px = 逻辑分辨率 ÷ 倍率（只读派生）
+  const cssW=lw?lw/dpr:null,cssH=lh?lh/dpr:null;
+  if(cssW&&cssH){set('sd-css-w',fmt(cssW));set('sd-css-h',fmt(cssH));}
+  // 每 1px 的绝对物理尺寸：由屏幕物理宽 Wmm 决定
+  const ratio=rw/rh,diagCm=inch*2.54;
+  const Wcm=diagCm*ratio/Math.sqrt(1+ratio*ratio),Wmm=Wcm*10;
+  if(Wmm>0){
+    if(rw)set('sd-r1',(Wmm/rw).toFixed(4)+' mm');
+    if(lw)set('sd-r2',(Wmm/lw).toFixed(4)+' mm');
+    if(cssW)set('sd-r3',(Wmm/cssW).toFixed(4)+' mm');
+  }
+  // === 图片信息（自动获取）：上传的真实像素 ===
+  const pw=num('im-pw'),ph=num('im-ph');
+  if(pw&&ph)set('im-px-auto',fmt(pw)+'×'+fmt(ph));
+  // === 应用尺寸 → 物理尺寸：按逻辑像素颗粒大小自动算出 ===
+  const sizeW=num('im-size-w'),sizeH=num('im-size-h');
+  let imgWmm,imgHmm;
+  const imDev=$('im-medium-radio')&&$('im-medium-radio').querySelector('input:checked');
+  const imMode=imDev?imDev.value:'device';
+  if(imMode==='device'){
+    // 逻辑像素颗粒 = 应用设备屏幕物理宽 ÷ 逻辑分辨率宽
+    const dlw=num('im-dev-lw'),dlh=num('im-dev-lh');
+    const dIn=num('im-dev-inch'),drw=num('im-dev-rw'),drh=num('im-dev-rh');
+    if(!(dIn&&drw&&drh&&dlw))return;
+    const dratio=drw/drh,dDiagCm=dIn*2.54;
+    const dWcm=dDiagCm*dratio/Math.sqrt(1+dratio*dratio);
+    const grainMm=dWcm*10/dlw;                     // 每个逻辑像素的物理毫米
+    imgWmm=(sizeW||0)*grainMm;imgHmm=(sizeH||0)*grainMm;
+    set('im-phys',(imgWmm/10).toFixed(1)+'cm×'+(imgHmm/10).toFixed(1)+'cm');
+  }else{
+    // 印刷：应用尺寸按所选单位换算成毫米物理尺寸
+    const f=LEN[$('u-im-size').value]*1000;        // 单位→毫米
+    imgWmm=(sizeW||0)*f;imgHmm=(sizeH||0)*f;
+    if(!(imgWmm&&imgHmm))return;
+    set('im-phys',imgWmm.toFixed(1)+' × '+imgHmm.toFixed(1)+' mm');
+  }
+  // === 两种展示模式 ===
+  // 原生场景视角：图片物理高度在「图片距离」处形成的张角
+  const nativeAng=2*Math.atan((imgHmm/1000)/(2*Math.max(0.001,imDistM)));
+  const mode=$('show-mode').querySelector('.sm-btn.active').dataset.mode;
+  let dispHmm;
+  if(mode==='angle'){
+    // 等比展示：保持原生视角，图片在屏幕上按 显示设备距离/图片距离 的比例缩放
+    dispHmm=imgHmm*(sdDistM/Math.max(0.001,imDistM));
+  }else{
+    // 等尺寸展示：图片物理尺寸 1:1 映射到屏幕
+    dispHmm=imgHmm;
+  }
+  // === 图片在外壳中的显示尺寸：以显示设备「每 CSS px 的物理毫米」为标尺 ===
+  // 屏幕物理高度 devHmm=Wmm/ratio，CSS 高度 cssH=lw/dpr
+  // → 每 CSS px 物理毫米 = devHmm/cssH；图片的 CSS 像素高度 = dispHmm / 该标尺
+  // 调整距离 → dispHmm 变化 → 图片在其中心锚点等比缩放
+  const imgEl=$('show-img');
+  if(imgEl && !imgEl.hidden && cssW>0 && cssH>0 && Wmm>0){
+    const mmPerCssPx=(Wmm/ratio)/cssH;            // 每 CSS px 的物理毫米
+    const cssImgH=dispHmm/mmPerCssPx;             // 图片应有的 CSS 像素高度
+    imgEl.style.height=Math.max(1,cssImgH)+'px';
+    imgEl.style.width=Math.max(1,cssImgH*imgRatio)+'px';
+  }
+  applyImgPan();   // 重设尺寸后重新钳制平移范围并更新手柄可见性
+  // === 右上角读数：窗口像素 → 逻辑像素尺寸 → 当前窗口实际尺寸 → 图片整体显示尺寸 ===
+  // 当前窗口像素 = 展示区外壳(蓝框)的实际 CSS 像素尺寸，随浏览器缩放变化
+  const shellEl=$('show-stage-wrap');
+  const winPxW=shellEl?shellEl.clientWidth:0,winPxH=shellEl?shellEl.clientHeight:0;
+  // 逻辑像素尺寸 = Wmm/lw（显示设备每个逻辑渲染点的物理毫米）
+  const grainLogical=Wmm/(lw||1);
+  const dispWmm=dispHmm*imgRatio;                       // 图片整体显示尺寸：按图片比例算宽度
+  set('ro-px',Math.round(winPxW)+'×'+Math.round(winPxH));
+  // 当前窗口逻辑像素数 = CSS 像素数 × DPR
+  set('ro-logpx',Math.round(winPxW*dpr)+'×'+Math.round(winPxH*dpr));
+  set('ro-grain',grainLogical.toFixed(4)+'毫米');
+  // 当前窗口实际尺寸 = 窗口本身在设备上的物理大小（窗口 CSS 像素 × 每 CSS px 物理毫米）
+  const mmPerCssPx=cssH>0&&Wmm>0 ? (Wmm/ratio)/cssH : 0;
+  set('ro-disp',mmPerCssPx ? (winPxW*mmPerCssPx).toFixed(1)+'毫米×'+(winPxH*mmPerCssPx).toFixed(1)+'毫米' : '—');
+  // 图片整体显示尺寸 = 整张图片在设备上的物理显示大小（按等比/等尺寸算出的 dispHmm）
+  set('ro-imgall',dispWmm.toFixed(1)+'毫米×'+dispHmm.toFixed(1)+'毫米');
+  // === 双距离视角图（等比：图片三角形 + 显示设备三角形，视角相等、尺寸随距离不同） ===
+  drawShowTri(nativeAng, sdDistM, imDistM, imgHmm, dispHmm);
+}
+
+/* 双距离视角图：把「图片三角形」和「显示设备三角形」画进同一张视角图。
+   视点在左，绿虚线张角=视角 nativeAng；两条蓝线分别标图片位置(距离+高度)与显示设备位置。
+   等比：两三角形视角相同，蓝线高度随距离按比例变化，都嵌在张角内。 */
+let triFrozenScale=null,triLastScale=1;   // 竖线拖动时冻结比例尺，使线精确跟随鼠标
+function drawShowTri(ang, sdDistM, imDistM, imgHmm, dispHmm){
+  const svg=$('show-tri');
+  if(!(svg && ang>0 && ang<Math.PI && sdDistM>0 && imDistM>0 && imgHmm>0))return;
+  // viewBox 与渲染尺寸 1:1 → x/y 同一比例尺，图上张角==真实视角 tan(θ/2)
+  const W=svg.clientWidth||846,H=svg.clientHeight||180;
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  const EYE_X=54,EYE_Y=H/2,RIGHT=W-14,PAD=10;
+  const tanHalf=Math.tan(ang/2);
+  const farDist=Math.max(imDistM,sdDistM);
+  // 比例尺 px/米：默认让最远者到 RIGHT；若按真实角度会溢出高度，则按高度反推（仍保持 x/y 同比例→角度真实）
+  // 拖动竖线期间冻结比例尺，使线精确跟随鼠标（否则最远线被钉在右端无法移动）
+  let scale=triFrozenScale||(RIGHT-EYE_X)/farDist;
+  if(!triFrozenScale){const cap=(EYE_Y-PAD)/(farDist*tanHalf);if(cap>0)scale=Math.min(scale,cap);}
+  triLastScale=scale;
+  const imgX=EYE_X+imDistM*scale,devX=EYE_X+sdDistM*scale,farX=EYE_X+farDist*scale;
+  const imgHalf=(imgHmm/2000)*scale;      // mm→m 再取半高，乘比例尺
+  const devHalf=(dispHmm/2000)*scale;
+  const farHalf=farDist*tanHalf*scale;    // 绿线终点半高 = 沿真实视角张开
+  const setXY=(id,x,y)=>{const e=$(id);if(e){e.setAttribute('x',x);e.setAttribute('y',y);}};
+  // 绿虚线：从视点沿真实视角张到最远处
+  $('st-green-top').setAttribute('x1',EYE_X);$('st-green-top').setAttribute('y1',EYE_Y);
+  $('st-green-top').setAttribute('x2',farX);$('st-green-top').setAttribute('y2',EYE_Y-farHalf);
+  $('st-green-bot').setAttribute('x1',EYE_X);$('st-green-bot').setAttribute('y1',EYE_Y);
+  $('st-green-bot').setAttribute('x2',farX);$('st-green-bot').setAttribute('y2',EYE_Y+farHalf);
+  // 视角填充（三角形）
+  $('st-fill').setAttribute('points',EYE_X+','+EYE_Y+' '+farX+','+(EYE_Y-farHalf)+' '+farX+','+(EYE_Y+farHalf));
+  // 红线视轴
+  $('st-axis').setAttribute('x1',EYE_X);$('st-axis').setAttribute('y1',EYE_Y);
+  $('st-axis').setAttribute('x2',RIGHT);$('st-axis').setAttribute('y2',EYE_Y);
+  // 图片蓝线 / 设备红线（端点均落在绿线上：等比时 farHalf 与各自半高在绿线斜率上一致）
+  $('st-img-line').setAttribute('x1',imgX);$('st-img-line').setAttribute('y1',EYE_Y-imgHalf);
+  $('st-img-line').setAttribute('x2',imgX);$('st-img-line').setAttribute('y2',EYE_Y+imgHalf);
+  $('st-dev-line').setAttribute('x1',devX);$('st-dev-line').setAttribute('y1',EYE_Y-devHalf);
+  $('st-dev-line').setAttribute('x2',devX);$('st-dev-line').setAttribute('y2',EYE_Y+devHalf);
+  // 悬停拖动柄定位：整条竖线为热区，按钮固定在竖线中点
+  const placeGrip=(id,x,half)=>{
+    const g=$(id);if(!g)return;
+    g.setAttribute('transform','translate('+x+','+EYE_Y+')');
+    const hit=g.querySelector('.st-grip-hit');
+    const top=Math.min(-half-8,-14),bot=Math.max(half+8,14);
+    hit.setAttribute('y',top);hit.setAttribute('height',bot-top);
+  };
+  placeGrip('st-img-grip',imgX,imgHalf);
+  placeGrip('st-dev-grip',devX,devHalf);
+  // 视点人物（随中线定位）
+  const person=$('st-person');if(person)person.setAttribute('transform','translate('+EYE_X+','+EYE_Y+') scale(0.85)');
+  // 角度标注
+  const angDeg=ang*180/Math.PI;
+  $('st-ang').textContent='∠ '+(isFinite(angDeg)?angDeg.toFixed(2):'—')+'°';
+  setXY('st-ang',EYE_X+6,EYE_Y-10);
+  // 距离/高度标注：靠近右边界时右对齐内收，避免被裁切
+  const label=(id,x,y,txt)=>{
+    const e=$(id);if(!e)return;
+    const near=x>W-110;
+    e.setAttribute('text-anchor',near?'end':'start');
+    e.setAttribute('x',near?x-6:x+6);e.setAttribute('y',y);
+    e.textContent=txt;
+  };
+  label('st-img-dist',imgX,EYE_Y-6,'距离 '+fmt(imDistM*1000)+'mm');
+  label('st-img-h',imgX,EYE_Y+16,'高度 '+fmt(imgHmm)+'mm');
+  label('st-dev-dist',devX,EYE_Y-6,'距离 '+fmt(sdDistM*1000)+'mm');
+  label('st-dev-h',devX,EYE_Y+16,'高度 '+fmt(dispHmm)+'mm');
 }
 
 KEYS.forEach(k=>{
   $('in-'+k).addEventListener('input',()=>{
+    if(userLock===k)return;   // 主动锁定的字段：拒绝一切数值输入
     // 超上限是明确的错误输入：实时拉回边界；下限/小数/0/输入中间态保留，不打扰编辑
     const inp=$('in-'+k),raw=parseFloat(inp.value);
     if(isFinite(raw)){
@@ -924,24 +1564,22 @@ KEYS.forEach(k=>{
     if(phys!==null&&isFinite(phys))write(k,phys);
     startAdjust();recalc();
   });
-  // 一体输入框：单击=正常编辑（可删改/点上下角标）；按住左右拖=调数值。
-  // 关键：mousedown 不 preventDefault，让输入框能正常聚焦、选中、删除、点 number 的上下角标。
-  // 只有鼠标真的横向移动超过阈值，才进入拖动模式。
+  // 一体输入框：点数字=正常编辑（可框选/删改/点上下角标）；按住左侧图标左右拖=调数值。
+  // 只有从图标按下并真的横向移动超过阈值，才进入拖动模式，避免框选文字时误触发。
   const cell=$('cell-'+k),inp=$('in-'+k);
-  const tag=cell.closest('.ctrl').querySelector('.field-label');
+  const ico=cell.querySelector('.field-ico');
   let dragging=false,startX=0,startVal=0,moved=false;
-  // 大字标签是滑动手柄：悬停显示滑轨；整个 cell（除下拉/锁按钮）也保留拖动调节
+  // 只有前面的图标是滑动手柄：从图标按下并左右拖动才调值、才显示滑轨；
+  // 悬停只显示描边，输入框数字区可正常框选/编辑，不再误触发滑动。
   const startDrag=e=>{
-    if(e.target.tagName==='SELECT'||e.target.closest('.ulock'))return;
+    if(userLock===k)return;   // 主动锁定的字段不可拖动调节
     dragging=true;moved=false;startX=e.clientX;
+    document.body.classList.add('dragging-range');   // 拖动期间全局锁定拖动光标，松开才恢复
     const v=parseFloat(inp.value);startVal=(isFinite(v)&&v>0)?v:0;
   };
-  cell.addEventListener('mousedown',startDrag);
-  if(tag)tag.addEventListener('mousedown',startDrag);
-  if(tag)tag.addEventListener('mouseenter',()=>cell.classList.add('slide-ready'));
-  if(tag)tag.addEventListener('mouseleave',()=>cell.classList.remove('slide-ready'));
-  cell.addEventListener('mouseenter',()=>cell.classList.add('slide-ready'));
-  cell.addEventListener('mouseleave',()=>cell.classList.remove('slide-ready'));
+  if(ico){
+    ico.addEventListener('mousedown',startDrag);
+  }
   window.addEventListener('mousemove',e=>{
     if(!dragging)return;
     const dx=e.clientX-startX;
@@ -951,11 +1589,11 @@ KEYS.forEach(k=>{
       e.preventDefault();
       // 匀速线性增长：每像素增起始值的 0.4%（细腻可控，不再指数暴涨）
       const nv=Math.max(0,startVal*(1+0.004*dx));
-      inp.value=fmt(nv);   // startVal 已是当前单位显示值，直接写回，不再换算
+      inp.value=fmtVal(k,nv);   // 当前单位显示值直接写回；度单位保留一位小数
       startAdjust();recalc(k);
     }
   });
-  window.addEventListener('mouseup',()=>{dragging=false;moved=false;cell.classList.remove('sliding');});
+  window.addEventListener('mouseup',()=>{dragging=false;moved=false;cell.classList.remove('sliding');document.body.classList.remove('dragging-range');});
 });
 // 注入锁图标：开锁（默认 hover 显示）/ 闭锁（主动锁定后常显）
 const SVG_UNLOCK='<svg class="ic-unlock" viewBox="0 0 1024 1024"><path d="M719.3 415.4V287c0-118.6-98.9-214.1-218.8-208.5C388.4 83.8 302 180.6 302 293v2.1c0 22.1 18 40.1 40.1 40.1s40.1-18 40.1-40.1v-3.5c0-68.2 51.4-128.1 119.6-132.6 74.8-5.1 137.2 54.4 137.2 128.1v128.4H302c-44.3 0-80.2 36-80.2 80.2v272.8c0 44.3 36 80.2 80.2 80.2h417.3c44.3 0 80.2-36 80.2-80.2V495.7c0.1-44.3-35.9-80.3-80.2-80.3zM510.7 696.3c-35.5 0-64.2-28.7-64.2-64.2s28.7-64.2 64.2-64.2 64.2 28.7 64.2 64.2c0 35.4-28.8 64.2-64.2 64.2z"/></svg>';
@@ -972,8 +1610,393 @@ document.querySelectorAll('.ulock').forEach(btn=>{
   });
 });
 $('sex-sel').addEventListener('change',applySex);
-$('res').addEventListener('change',drawMonitor);
-$('ppi').addEventListener('input',drawMonitor);
+
+/* ================= 展示页面：输入 + 模式切换 + 图片上传 ================= */
+// 上传图片的真实宽高比（固有比例）：所有「像素框」与「物理尺寸框」都按此比例联动。
+// 上传后由图片真实像素覆盖；默认与 HTML 初值一致。
+let imgRatio=2880/1800;
+
+// 应用尺寸联动：改一边，另一边按图片固有比例 imgRatio 自动算。
+function syncSizeRatio(which){
+  if(!(imgRatio>0))return;
+  if(which==='w'){
+    const w=parseFloat($('im-size-w').value);
+    if(w>0)$('im-size-h').value=(w/imgRatio).toFixed(2);
+  }else{
+    const h=parseFloat($('im-size-h').value);
+    if(h>0)$('im-size-w').value=(h*imgRatio).toFixed(2);
+  }
+}
+['sd-rw','sd-rh','sd-lw','sd-lh','sd-dpr','sd-inch','u-sd-inch','sd-dist','im-dist','u-sd-dist','u-im-dist','im-size-w','im-size-h'].forEach(id=>{
+  const el=$(id);if(!el)return;
+  el.addEventListener('input',()=>{
+    // 显示设备字段改动 → 下拉标记自定义
+    if(['sd-rw','sd-rh','sd-lw','sd-lh','sd-dpr','sd-inch'].includes(id))markSdCustom();
+    if(id==='im-size-w')syncSizeRatio('w');
+    else if(id==='im-size-h')syncSizeRatio('h');
+    // 对角线或物理分辨率变化 → 若宽高已展开则按分辨率比重写宽高
+    if((id==='sd-inch'||id==='sd-rw'||id==='sd-rh')&&typeof sdSyncWHFromDiag==='function'&&$('sd-dim-extra')&&$('sd-dim-extra').classList.contains('show'))sdSyncWHFromDiag();
+    drawMonitor();
+  });
+  if(el.tagName==='SELECT')el.addEventListener('change',drawMonitor);
+});
+// 两个距离字段：整块输入区（图标+数字）均可按住左右拖动调节，单击仍可正常编辑，单位下拉不受影响
+['sd-dist','im-dist'].forEach(id=>{
+  const input=$(id);if(!input)return;
+  const box=input.closest('.sf-in');if(!box)return;
+  let dragging=false,startX=0,startVal=0,moved=false;
+  box.addEventListener('mousedown',e=>{
+    if(e.button!==0)return;
+    if(e.target.tagName==='SELECT')return;    // 单位下拉交给原生交互
+    const v=parseFloat(input.value);
+    dragging=true;moved=false;startX=e.clientX;
+    startVal=(isFinite(v)&&v>0)?v:(parseFloat(input.min)||1);
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    const dx=e.clientX-startX;
+    if(!moved&&Math.abs(dx)>3){moved=true;window.getSelection().removeAllRanges();try{input.blur();}catch(_){}box.classList.add('dragging');}
+    if(moved){
+      e.preventDefault();
+      const nv=Math.max(parseFloat(input.min)||0,startVal*(1+0.004*dx));
+      input.value=fmt(nv);
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+  });
+  window.addEventListener('mouseup',()=>{if(moved)box.classList.remove('dragging');dragging=false;moved=false;});
+});
+// 应用设备：媒介单选（电子/印刷）切换
+function applyImMedium(mode){
+  const dev=mode==='device';
+  document.querySelectorAll('#im-medium-radio .imr').forEach(l=>l.classList.toggle('on',l.querySelector('input').value===mode));
+  // 印刷媒介：无需设备（没有 A4 下拉），只需填应用尺寸+单位；电子媒介：显示设备预设与其分辨率
+  $('im-model').hidden=!dev;
+  $('im-dev-fields').hidden=!dev;
+  $('im-derived').hidden=!dev;                 // 印刷下"物理尺寸(自动生成)"行隐藏
+  $('u-im-size').hidden=dev;                    // 印刷下显示尺寸单位下拉
+  if(dev){
+    fillModelOptions('e');
+    const first=$('im-model').options[0];
+    if(first)applyImModel(first.value);
+  }else{
+    // 首次切到印刷：给合理的厘米尺寸默认（宽24，高按图片比例），并同步单位
+    const ui=$('u-im-size');ui.value='centimeters';ui.dataset.prev='centimeters';
+    const w=parseFloat($('im-size-w').value);
+    const defW=(isFinite(w)&&w>0&&w<100)?w:24;   // 若还是像素量级则回退24cm
+    $('im-size-w').value=fmt(defW);
+    if(imgRatio>0)$('im-size-h').value=(defW/imgRatio).toFixed(1);
+  }
+  drawMonitor();
+}
+document.querySelectorAll('input[name=im-medium]').forEach(r=>{
+  r.addEventListener('change',e=>applyImMedium(e.target.value));
+});
+// 应用尺寸单位切换：等效换算显示值（物理尺寸不变），比例保持
+const uImSize=$('u-im-size');
+if(uImSize){
+  uImSize.dataset.prev='centimeters';
+  uImSize.addEventListener('change',e=>{
+    const nu=e.target.value,ou=e.target.dataset.prev||'centimeters';
+    reunit('im-size-w',ou,nu);reunit('im-size-h',ou,nu);
+    e.target.dataset.prev=nu;
+    drawMonitor();
+  });
+}
+// 应用设备：选择设备预设 → 带入物理/逻辑分辨率、屏幕尺寸
+function applyImModel(key){
+  if(key==='custom')return;
+  const m=findPreset(key);if(!m)return;
+  if(m.m==='p'){
+    // 印刷预设：应用尺寸宽度带入纸张宽度，高度按图片固有比例算（保持图片比例）
+    if($('im-size-w')){
+      $('im-size-w').value=m.w;
+      if(imgRatio>0)$('im-size-h').value=(m.w/imgRatio).toFixed(2);
+    }
+    return;
+  }
+  const cw=m.c[0],ch=m.c[1],dpr=m.d||1;
+  const lw=cw*dpr,lh=ch*dpr,phys=m.p||[cw,ch];
+  const inch=m.i!=null?m.i:Math.hypot(cw,ch)/96;
+  $('im-dev-rw').value=fmt(phys[0]);$('im-dev-rh').value=fmt(phys[1]);
+  $('im-dev-lw').value=fmt(lw);$('im-dev-lh').value=fmt(lh);
+  $('im-dev-inch').value=fmt(inch);
+  // 应用尺寸默认带入物理宽度（高度按图片固有比例算），比例始终由上传图片决定
+  const sw=phys[0];
+  $('im-size-w').value=fmt(sw);
+  if(imgRatio>0)$('im-size-h').value=(sw/imgRatio).toFixed(2);
+}
+const imModel=$('im-model');
+if(imModel)imModel.addEventListener('change',e=>applyImModel(e.target.value));
+// 显示设备信息卡：选择设备预设 → 载入该预设（同步示意界面与两卡字段）
+const sdModel=$('sd-model');
+if(sdModel)sdModel.addEventListener('change',e=>{
+  if(e.target.value==='custom')return;
+  // 关键：loadModel 由 pc 字段驱动、calcElectronic 末尾把 sd-model 同步回 pc-model，
+  // 必须先让两者一致，否则切换后数字不变、下拉被重置回旧值。
+  $('pc-model').value=e.target.value;
+  loadModel(e.target.value,false);   // false：不覆盖观看距离
+});
+// 手动改显示设备数值 → 下拉标记「自定义」（pc 与 sd 两处同步，避免 calcElectronic 用 pc 旧值覆盖回去）
+function markSdCustom(){
+  if($('pc-model'))$('pc-model').value='custom';
+  if($('sd-model'))$('sd-model').value='custom';
+}
+/* ---- 第二页 显示设备屏幕尺寸：对角线 ↔ 物理宽高 联动（按物理分辨率宽高比锁定，保留1位小数，同第一页交互）---- */
+const sdToggle=$('sd-dim-toggle'),sdExtra=$('sd-dim-extra');
+const sdNum=id=>{const e=$(id);const v=e?parseFloat(e.value):NaN;return isFinite(v)&&v>0?v:null;};
+const sdF1=v=>Math.round(v*10)/10;   // 保留一位小数
+// 屏幕对角线统一成英寸
+function sdDiagInches(){
+  const v=sdNum('sd-inch');if(!v)return null;
+  return v*LEN[$('u-sd-inch').value]/0.0254;
+}
+// 物理分辨率宽高比（锁定的比例依据）
+function sdPhysRatio(){return (sdNum('sd-rw')||1)/(sdNum('sd-rh')||1);}
+// 对角线 + 分辨率比 → 物理宽高（写回，单位按 u-sd-wh）
+function sdSyncWHFromDiag(){
+  const dIn=sdDiagInches();if(!dIn)return;
+  const ratio=sdPhysRatio(),dCm=dIn*2.54;
+  const w=dCm*ratio/Math.sqrt(1+ratio*ratio),h=w/ratio;   // cm
+  const f=LEN[$('u-sd-wh').value];
+  $('sd-cw').value=sdF1(w/100/f);   // cm→米→当前单位
+  $('sd-ch').value=sdF1(h/100/f);
+}
+// 改宽或高 → 按比联动另一个 → 反算对角线（保留1位小数）
+function sdSyncDiagFromWH(which){
+  const f=LEN[$('u-sd-wh').value],ratio=sdPhysRatio();
+  let w=sdNum('sd-cw'),h=sdNum('sd-ch');
+  if(!w&&!h)return;
+  if(which==='w'&&w)h=w/ratio;
+  else if(which==='h'&&h)w=h*ratio;
+  if(w)$('sd-cw').value=sdF1(w);
+  if(h)$('sd-ch').value=sdF1(h);
+  $('sd-inch').value=sdF1(Math.hypot(w||0,h||0)*f/LEN[$('u-sd-inch').value]);
+}
+// 展开/收起物理宽高：展开时按当前对角线+分辨率比算好宽高
+if(sdToggle&&sdExtra)sdToggle.addEventListener('click',()=>{
+  const on=sdExtra.classList.toggle('show');
+  sdToggle.classList.toggle('on',on);
+  if(on)sdSyncWHFromDiag();
+});
+// 宽高输入：改一个→按分辨率比联动另一个→反算对角线
+['sd-cw','sd-ch'].forEach(id=>{
+  const el=$(id);if(!el)return;
+  el.addEventListener('input',()=>{
+    markSdCustom();
+    sdSyncDiagFromWH(id==='sd-cw'?'w':'h');drawMonitor();
+  });
+});
+// 宽高单位切换：等效换算两个显示值（物理尺寸不变）
+const uSdWh=$('u-sd-wh');
+if(uSdWh){
+  uSdWh.dataset.prev='centimeters';
+  uSdWh.addEventListener('change',e=>{
+    const nu=e.target.value,ou=e.target.dataset.prev||'centimeters';
+    ['sd-cw','sd-ch'].forEach(id=>{const v=sdNum(id);if(v)$(id).value=sdF1(v*LEN[ou]/LEN[nu]);});
+    e.target.dataset.prev=nu;
+  });
+}
+// 屏幕尺寸单位切换：等效换算显示值，物理对角线不变；展开时同步宽高
+const uSdInch=$('u-sd-inch');
+if(uSdInch){
+  uSdInch.dataset.prev='inches';
+  uSdInch.addEventListener('change',e=>{
+    const nu=e.target.value,ou=e.target.dataset.prev||'inches';
+    reunit('sd-inch',ou,nu);e.target.dataset.prev=nu;
+    markSdCustom();
+    if(sdExtra&&sdExtra.classList.contains('show'))sdSyncWHFromDiag();
+    drawMonitor();
+  });
+}
+
+/* ---- 显示设备信息：W/H 前缀作为左右拖动把手 ----
+   按住 W/H 字母左右拖，按起步值 0.4%/px 调节；数字区仍可正常点选编辑。 */
+document.querySelectorAll('.sd-drag').forEach(handle=>{
+  const id=handle.dataset.sd,inp=$(id);
+  if(!inp)return;
+  const wrap=handle.closest('.whinp,.uni-field');
+  let dragging=false,startX=0,startVal=0,moved=false;
+  handle.addEventListener('mousedown',e=>{
+    if(e.button!==0)return;
+    e.preventDefault();
+    const v=parseFloat(inp.value);
+    dragging=true;moved=false;startX=e.clientX;
+    startVal=(isFinite(v)&&v>0)?v:(parseFloat(inp.min)||1);
+    if(wrap)wrap.classList.add('dragging-h');
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    const dx=e.clientX-startX;
+    if(!moved&&Math.abs(dx)>3){moved=true;window.getSelection().removeAllRanges();}
+    if(moved){
+      e.preventDefault();
+      const nv=Math.max(parseFloat(inp.min)||0,startVal*(1+0.004*dx));
+      // 屏幕对角线/物理宽高保留一位小数；分辨率保持整数
+      inp.value=(id==='sd-inch'||id==='sd-cw'||id==='sd-ch')?(Math.round(nv*10)/10):fmt(nv);
+      markSdCustom();
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+  });
+  window.addEventListener('mouseup',()=>{
+    if(dragging&&wrap)wrap.classList.remove('dragging-h');
+    dragging=false;moved=false;
+  });
+});
+$('show-mode').addEventListener('click',e=>{
+  const btn=e.target.closest('.sm-btn');if(!btn)return;
+  $('show-mode').querySelectorAll('.sm-btn').forEach(b=>b.classList.toggle('active',b===btn));
+  // 等比展示才需要双距离输入框与双距离视角图；等尺寸展示隐藏这两个组件
+  const isAngle=btn.dataset.mode==='angle';
+  const fd=document.querySelector('.float-dists'),tri=document.querySelector('.show-tri-bar');
+  if(fd)fd.hidden=!isAngle;
+  if(tri)tri.hidden=!isAngle;
+  drawMonitor();
+});
+// 窗口尺寸变化：外壳尺寸随之改变，重新计算图片显示尺寸
+window.addEventListener('resize',()=>{if(!$('show-body').hidden)drawMonitor();});
+// 外壳尺寸变化（浏览器缩放/布局）：实时重算读数与图片尺寸
+if(window.ResizeObserver && $('show-stage-wrap')){
+  new ResizeObserver(()=>{if(!$('show-body').hidden)drawMonitor();}).observe($('show-stage-wrap'));
+}
+// 图片平移：整块窗口任意位置可拖动（仅在图片超出时生效）
+(function(){
+  const mon=$('monitor');if(!mon)return;
+  let dragging=false,sx=0,sy=0,ox=0,oy=0;
+  mon.addEventListener('mousedown',e=>{
+    if(e.button!==0||!mon.classList.contains('can-pan'))return;
+    e.preventDefault();
+    dragging=true;sx=e.clientX;sy=e.clientY;ox=imgPan.x;oy=imgPan.y;
+    mon.classList.add('panning');
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    imgPan.x=ox+(e.clientX-sx);
+    imgPan.y=oy+(e.clientY-sy);
+    applyImgPan();
+  });
+  window.addEventListener('mouseup',()=>{if(!dragging)return;dragging=false;mon.classList.remove('panning');});
+})();
+// 缩略导航：点击/拖动迷你图定位查看区域
+(function(){
+  const stage=$('mm-stage');if(!stage)return;
+  let dragging=false;
+  const navigate=e=>{
+    const shell=$('show-stage-wrap'),img=$('show-img');
+    if(!shell||!img)return;
+    const r=stage.getBoundingClientRect();
+    const fx=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+    const fy=Math.max(0,Math.min(1,(e.clientY-r.top)/r.height));
+    // 焦点映射到原图像素，再换算平移量（图片中心还带锚点偏移 ax/ay）
+    const ph=$('stage-placeholder');
+    let ax=0,ay=0;
+    if(ph){const sr=shell.getBoundingClientRect(),pr=ph.getBoundingClientRect();
+      ax=(pr.left+pr.width/2)-(sr.left+shell.clientWidth/2);
+      ay=(pr.top+pr.height/2)-(sr.top+shell.clientHeight/2);}
+    const ix=fx*img.offsetWidth,iy=fy*img.offsetHeight;
+    imgPan.x=shell.clientWidth/2-ix-ax;
+    imgPan.y=shell.clientHeight/2-iy-ay;
+    applyImgPan();
+  };
+  stage.addEventListener('mousedown',e=>{
+    if(e.button!==0)return;
+    e.preventDefault();e.stopPropagation();
+    dragging=true;navigate(e);
+  });
+  window.addEventListener('mousemove',e=>{if(dragging)navigate(e);});
+  window.addEventListener('mouseup',()=>{dragging=false;});
+})();
+// 读数悬停：在页面上画出该尺寸对应的区域框
+(function(){
+  const shell=$('show-stage-wrap'),hl=$('ro-hl'),tag=$('ro-hl-tag');
+  const rows=document.querySelectorAll('#show-readout>div');
+  if(!shell||!hl||!tag)return;
+  const labels={window:'整个窗口区域',image:'整张图片（含被裁切部分）',point:'单个逻辑渲染点'};
+  rows.forEach(row=>{
+    row.addEventListener('mouseenter',()=>{
+      const kind=row.dataset.hl,img=$('show-img');
+      const sw=shell.clientWidth,sh=shell.clientHeight;
+      let x=0,y=0,w=sw,h=sh;
+      if(kind==='image'&&img){
+        // 用图片真实位置（相对外壳）框选：图片中心锚在占位区，非窗口正中
+        const ir=img.getBoundingClientRect(),sr=shell.getBoundingClientRect();
+        x=ir.left-sr.left;y=ir.top-sr.top;w=ir.width;h=ir.height;
+      }else if(kind==='point'){
+        const g=Wmm/(parseFloat($('sd-lw').value)||1);  // 单逻辑像素物理尺寸 → 示意小框
+        const px=Math.max(8,g*60);x=8;y=8;w=px;h=px;
+      }
+      hl.style.left=x+'px';hl.style.top=y+'px';
+      hl.style.width=w+'px';hl.style.height=h+'px';
+      tag.textContent=labels[kind]||'';
+      hl.classList.add('show');
+    });
+    row.addEventListener('mouseleave',()=>hl.classList.remove('show'));
+  });
+})();
+// 三角形竖线拖动：悬停显示 ↔ 柄，按住左右拖动改对应距离（比例映射：线距视点的像素↔米）
+(function(){
+  const bar=document.querySelector('.show-tri-bar');
+  ['st-dev-grip','st-img-grip'].forEach(gid=>{
+    const g=$(gid);if(!g)return;
+    const input=$(g.dataset.dist);
+    let dragging=false,startX=0,startValM=0;
+    const unitSel=$('u-'+g.dataset.dist);
+    const hit=g.querySelector('.st-grip-hit');
+    hit.addEventListener('mouseenter',()=>g.classList.add('hot'));
+    hit.addEventListener('mouseleave',()=>{if(!dragging)g.classList.remove('hot');});
+    hit.addEventListener('mousedown',e=>{
+      if(e.button!==0)return;
+      e.preventDefault();
+      dragging=true;startX=e.clientX;
+      startValM=(parseFloat(input.value)||1)*LEN[unitSel.value];
+      triFrozenScale=triLastScale;   // 冻结比例尺 → 竖线跟随鼠标
+      g.classList.add('hot');bar.classList.add('dragging-grip');
+    });
+    window.addEventListener('mousemove',e=>{
+      if(!dragging)return;
+      const dx=e.clientX-startX;
+      if(dx===0)return;
+      const distM=Math.max(0.001,startValM+dx/triFrozenScale);
+      input.value=fmt(distM/LEN[unitSel.value]);
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+    });
+    window.addEventListener('mouseup',()=>{
+      if(!dragging)return;
+      dragging=false;triFrozenScale=null;bar.classList.remove('dragging-grip');
+      drawMonitor();   // 解冻后按新距离重新布局
+      if(!hit.matches(':hover'))g.classList.remove('hot');
+    });
+  });
+})();
+$('img-upload').addEventListener('change',e=>{
+  const file=e.target.files[0];if(!file)return;
+  const url=URL.createObjectURL(file);
+  const img=$('show-img');
+  img.src=url;img.hidden=false;
+  // 切到「上传后」状态：显示完整界面，隐藏初始上传入口，展开图片字段
+  $('show-empty').hidden=true;
+  $('show-body').hidden=false;
+  $('show-readout').hidden=false;   // 上传后才显示右上角读数
+  $('img-entry').hidden=false;      // 上传后才显示图片信息入口（针对图片的设置）
+  $('img-fields').hidden=false;
+  $('img-upbtn-text').textContent='重新上传';
+  $('im-ok').textContent=file.name.replace(/\.[^.]+$/,'')+'上传成功';
+  $('im-ok').hidden=false;
+  // 读取图片真实像素宽高 → 图片信息（自动获取）+ 固有比例基准
+  const probe=new Image();
+  probe.onload=()=>{
+    const w=probe.naturalWidth,h=probe.naturalHeight;
+    if(w>0&&h>0){
+      imgRatio=w/h;                       // 全局固有比例
+      $('im-pw').value=w;$('im-ph').value=h;   // 隐藏数据源（供 drawMonitor 用）
+      // 应用尺寸按新比例：保持宽度，重算高度
+      const sw=parseFloat($('im-size-w').value);
+      if(sw>0)$('im-size-h').value=(sw/imgRatio).toFixed(2);
+    }
+    drawMonitor();
+  };
+  probe.src=url;
+  drawMonitor();
+});
 
 /* ================= 媒介信息：统一画布预设（仿 Figma） ================= */
 // 每个预设：k 唯一键 / label 名称 / g 分组 / m 媒介(e 电子, p 印刷)
@@ -1208,20 +2231,42 @@ function reunit(id,oldU,newU){
   const v=pcNum(id);if(v===null)return;
   $(id).value=fmt(v*LEN[oldU]/LEN[newU]);
 }
-function fillModelOptions(){
-  const sel=$('pc-model');sel.innerHTML='';
+function fillModelOptions(mode){
+  // mode: 'e' 电子 / 'p' 印刷；不传则全部。按媒介类型过滤分组，避免电子/印刷混在一起。
+  const sels=[$('pc-model'),$('sd-model'),$('im-model')].filter(Boolean);
+  sels.forEach(sel=>sel.innerHTML='');
   for(const grp of CANVASES){
+    const items=grp.items.filter(it=>!mode||((it.m==='p')===(mode==='p')));
+    if(!items.length)continue;
     const og=document.createElement('optgroup');og.label=grp.g;
-    for(const it of grp.items){const o=document.createElement('option');o.value=it.k;o.textContent=it.label;og.appendChild(o);}
-    sel.appendChild(og);
+    for(const it of items){const o=document.createElement('option');o.value=it.k;o.textContent=it.label;og.appendChild(o);}
+    sels.forEach(sel=>sel.appendChild(og.cloneNode(true)));
   }
+  // 「自定义」：手动改动任一数值后的状态（放末尾）
+  sels.forEach(sel=>{const o=document.createElement('option');o.value='custom';o.textContent='自定义';sel.appendChild(o);});
+}
+// 切换电子/印刷媒介：重填下拉为该类型的预设，并载入第一个
+function setMedium(mode){
+  document.querySelectorAll('#medium-radio .mr').forEach(l=>{
+    l.classList.toggle('on',l.querySelector('input').value===mode);
+  });
+  const radios=document.querySelectorAll('input[name=medium]');
+  radios.forEach(r=>{if(r.value===mode)r.checked=true;});
+  fillModelOptions(mode);
+  const first=$('pc-model').options[0];
+  if(first)loadModel(first.value,true);
 }
 function loadModel(key,writeDist){
   if(writeDist===undefined)writeDist=true;
   if(key==='custom')return;   // 手动改值后保持当前模式与字段，不重填
   const m=findPreset(key);if(!m)return;
+  // 关键：让预设下拉与载入的 key 一致，否则 calcElectronic 会把 sd-model 同步回浏览器默认的第一项
+  if($('pc-model'))$('pc-model').value=key;
   const print=(m.m==='p');
   curMode=print?'p':'e';
+  // 同步媒介单选状态（含只读预设被载入时）
+  document.querySelectorAll('#medium-radio .mr').forEach(l=>l.classList.toggle('on',l.querySelector('input').value===curMode));
+  document.querySelectorAll('input[name=medium]').forEach(r=>{if(r.value===curMode)r.checked=true;});
   $('mode-electronic').style.display=print?'none':'';
   $('mode-print').style.display=print?'':'none';
   if(print){
@@ -1237,7 +2282,7 @@ function loadModel(key,writeDist){
   $('pc-lw').value=fmt(lw);$('pc-lh').value=fmt(lh);
   $('pc-dpr').value=String(dpr);
   $('u-pc-inch').value='inches';$('u-pc-inch').dataset.prev='inches';
-  $('pc-inch').value=fmt(inch);
+  $('pc-inch').value=Math.round(inch*10)/10;   // 对角线保留一位小数
   syncWHFromDiag();
   calcElectronic();
   refreshViewDist(writeDist);
@@ -1259,23 +2304,27 @@ function calcElectronic(){
   $('pc-r1').textContent=physPx.toFixed(4)+' mm';
   $('pc-r2').textContent=logPx.toFixed(4)+' mm';
   $('pc-r3').textContent=cssPx.toFixed(4)+' mm';
-  $('pc-line').innerHTML=`屏幕 ${Wcm.toFixed(1)}×${Hcm.toFixed(1)} cm（${inch} 寸） · PPI ${fmt(ppi)} · DPR ${dpr}x · 渲染 ${fmt(lw)}×${fmt(lh)}（画布/面板 ${renderScale.toFixed(2)}×）`;
-  const resVal=pw+'x'+ph,resSel=$('res');
-  let opt=[...resSel.options].find(o=>o.value===resVal);
-  if(!opt){opt=document.createElement('option');opt.value=resVal;opt.textContent=pw+' × '+ph;resSel.appendChild(opt);}
-  resSel.value=resVal;
-  $('ppi').value=fmt(ppi);
+  // 显示设备信息：取自示意界面所选设备（物理/逻辑分辨率、对角线、DPR）
+  $('sd-rw').value=fmt(pw);$('sd-rh').value=fmt(ph);
+  $('sd-lw').value=fmt(lw);$('sd-lh').value=fmt(lh);
+  $('sd-dpr').value=String(dpr);
+  $('u-sd-inch').value='inches';if($('u-sd-inch'))$('u-sd-inch').dataset.prev='inches';$('sd-inch').value=(Math.round(inch*10)/10);
+  // 同步展示页设备下拉（与示意界面同预设；custom 时标记自定义）
+  const sdSel=$('sd-model');
+  if(sdSel){const mv=$('pc-model').value;sdSel.value=(mv&&[...sdSel.options].some(o=>o.value===mv))?mv:'custom';}
+  // 示意界面所选画布带入「应用设备信息」（图片就是为该设备设计的）
+  const imSel=$('im-model');
+  if(imSel){
+    const mv=$('pc-model').value;
+    if(mv&&[...imSel.options].some(o=>o.value===mv)){
+      imSel.value=mv;
+      applyImModel(mv);
+    }
+  }
   drawMonitor();
 }
 function calcPrint(){
-  const w=pcNum('pr-w'),h=pcNum('pr-h'),dpi=pcNum('pr-dpi');
-  if(!(w&&h&&dpi))return;
-  const pxMm=25.4/dpi;
-  const pw=Math.round(w/2.54*dpi),ph=Math.round(h/2.54*dpi);
-  $('pr-r1').textContent=pxMm.toFixed(4)+' mm';
-  $('pr-r2').textContent=pw+' × '+ph+' px';
-  $('pr-r3').textContent=fmt(dpi/2.54)+' px/cm';
-  $('pr-line').innerHTML=`尺寸 ${w}×${h} cm · DPI ${dpi} · 成品需 ${pw} × ${ph} px`;
+  // 印刷派生读数块已移除，保留此函数以兼容调用点（观看距离直接读 pr-w/pr-h）
 }
 // 分辨率：宽/高比变了，若宽高已展开则按对角线重算宽高
 ['pc-pw','pc-lw','pc-ph','pc-lh'].forEach(id=>{
@@ -1330,6 +2379,22 @@ $('in-distance').value=500;$('in-size').value=40;
   sel.value='30';
 })();
 $('viewer-height').value=(HEIGHT[sex]*100).toFixed(1);
+// 右上角设置气泡：互斥开关，点外部关闭，点气泡内部不关闭
+(function(){
+  const btns=document.querySelectorAll('.entry-set'),bubs=document.querySelectorAll('.pop-bubble');
+  if(!btns.length)return;
+  const closeAll=()=>bubs.forEach(b=>b.classList.remove('show'));
+  btns.forEach(btn=>btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    const target=document.getElementById(btn.dataset.bubble);
+    const willOpen=target&&!target.classList.contains('show');
+    closeAll();
+    if(willOpen)target.classList.add('show');
+  }));
+  bubs.forEach(b=>b.addEventListener('click',e=>e.stopPropagation()));
+  document.addEventListener('click',closeAll);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll();});
+})();
 // 顶部导航：切换页面（切到展示页时重绘屏幕，确保依赖尺寸已就绪）
 document.querySelectorAll('.topnav .tab').forEach(tab=>{
   tab.addEventListener('click',()=>{
@@ -1338,14 +2403,92 @@ document.querySelectorAll('.topnav .tab').forEach(tab=>{
     tab.classList.add('active');
     const pg=document.getElementById(tab.dataset.page);
     if(pg)pg.classList.add('active');
+    document.body.classList.toggle('show-active',tab.dataset.page==='page-show');
     if(tab.dataset.page==='page-show')drawMonitor();
     window.scrollTo({top:0,behavior:'smooth'});
   });
 });
 recalc('distance');
-fillModelOptions();
+fillModelOptions('e');        // 默认只填电子媒介预设
 loadModel('mbp2017',false);   // 初始化只填媒介字段，不覆盖默认的 500mm 观看距离
+// 电子/印刷媒介单选：切换时重填下拉并载入该类型第一个预设
+document.querySelectorAll('input[name=medium]').forEach(r=>{
+  r.addEventListener('change',e=>{if(e.target.checked)setMedium(e.target.value);});
+});
 setTimeout(()=>{$('concl').classList.add('show');},50);
+
+/* ================= 画布内直接拖动红线/蓝线调数值 =================
+   红线(水平)=距离：鼠标靠近→红线加粗、箭头放大、左右光标→左右拖调距离
+   蓝线(竖直)=高度：鼠标靠近→蓝线加粗、箭头放大、上下光标→上下拖调高度
+   只调这两个量，视角由联动自动算出。 */
+(function(){
+  const svg=$('viz'),wrap=svg?svg.closest('.vizwrap'):null;
+  if(!svg||!wrap)return;
+  let drag=null,hot=null;
+  const TOL=12;   // 命中容差（SVG 单位）
+
+  // 屏幕坐标 → SVG viewBox 坐标（自动处理 meet 缩放与居中）
+  function toSvg(e){
+    const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;
+    const m=svg.getScreenCTM();
+    return m?p.matrixTransform(m.inverse()):{x:0,y:0};
+  }
+  // 当前几何（用基础物理值，静止时与画面一致）
+  function gnow(){
+    const D=baseVals.distance,S=baseVals.size,A=baseVals.angle;
+    if(!(D>0&&S!==null&&A!==null))return null;
+    return geom(D,S,A);
+  }
+  // 命中检测：'distance'(红线) / 'size'(蓝线) / null。右端交汇处蓝线优先。
+  function hit(pt){
+    const g=gnow();if(!g)return null;
+    // 主动锁定的字段不响应拖线（与输入框只读保持一致）
+    if(userLock!=='size'&&Math.abs(pt.x-g.ex)<=TOL&&pt.y>=g.top-TOL&&pt.y<=g.bot+TOL)return 'size';
+    if(userLock!=='distance'&&Math.abs(pt.y-EYE.y)<=TOL&&pt.x>=EYE.x-TOL&&pt.x<=g.ex+TOL)return 'distance';
+    return null;
+  }
+  function setHot(k){
+    if(hot===k)return;
+    const red=$('viz-red'),blue=$('viz-blue');
+    red.classList.remove('hot');blue.classList.remove('hot');
+    red.setAttribute('marker-end','url(#ar-red)');
+    blue.setAttribute('marker-start','url(#ar-blue)');blue.setAttribute('marker-end','url(#ar-blue)');
+    hot=k;
+    if(k==='distance'){
+      red.classList.add('hot');red.setAttribute('marker-end','url(#ar-red-lg)');
+      wrap.style.cursor='ew-resize';
+    }else if(k==='size'){
+      blue.classList.add('hot');
+      blue.setAttribute('marker-start','url(#ar-blue-lg)');blue.setAttribute('marker-end','url(#ar-blue-lg)');
+      wrap.style.cursor='ns-resize';
+    }else wrap.style.cursor='';
+  }
+
+  svg.addEventListener('mousemove',e=>{
+    if(drag){
+      const rate=0.004;let phys;
+      if(drag.k==='distance')phys=drag.startPhys*(1+rate*(e.clientX-drag.sx));
+      else phys=drag.startPhys*(1-rate*(e.clientY-drag.sy));  // 向上拖增大高度
+      phys=clamp(phys,RANGE[drag.k][0],RANGE[drag.k][1]);
+      write(drag.k,phys);startAdjust();recalc(drag.k);
+      e.preventDefault();return;
+    }
+    setHot(hit(toSvg(e)));
+  });
+  svg.addEventListener('mousedown',e=>{
+    const k=hit(toSvg(e));if(!k)return;
+    const phys=baseVals[k];if(phys===null||!isFinite(phys))return;
+    drag={k,startPhys:phys,sx:e.clientX,sy:e.clientY};
+    wrap.classList.add(k==='distance'?'drag-red':'drag-blue');
+    document.body.style.cursor=k==='distance'?'ew-resize':'ns-resize';
+    startAdjust();e.preventDefault();
+  });
+  window.addEventListener('mouseup',()=>{
+    if(!drag)return;
+    drag=null;wrap.classList.remove('drag-red','drag-blue');document.body.style.cursor='';
+  });
+  svg.addEventListener('mouseleave',()=>{if(!drag)setHot(null);});
+})();
 })();
 </script>
 </body>
