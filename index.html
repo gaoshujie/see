@@ -1179,10 +1179,11 @@
     <div data-hl="window">当前窗口逻辑像素数：<span id="ro-logpx">—</span></div>
     <div data-hl="point">当前设备逻辑像素尺寸：<span id="ro-grain">—</span></div>
     <div data-hl="window">当前窗口尺寸：<span id="ro-disp">—</span></div>
+    <div data-hl="image" title="图片在当前窗口中的逻辑像素尺寸 = 当前窗口显示图片尺寸 ÷ 当前设备逻辑像素尺寸；CSS 像素 = 该值 ÷ DPR">当前窗口显示图片像素：<span id="ro-imgpx">—</span></div>
     <div data-hl="image">当前窗口显示图片尺寸：<span id="ro-imgall">—</span></div>
-    <div data-hl="image">图片原像素：<span id="ro-srcpx">—</span></div>
-    <div data-hl="image">终端图片像素：<span id="ro-impx">—</span></div>
-    <div data-hl="terminal">终端设备逻辑像素尺寸：<span id="ro-termgrain">—</span></div>
+    <div data-hl="image">原始图片像素：<span id="ro-srcpx">—</span></div>
+    <div data-hl="image" id="ro-impx-row">终端使用图片像素：<span id="ro-impx">—</span></div>
+    <div data-hl="terminal" id="ro-termgrain-row">终端设备逻辑像素尺寸：<span id="ro-termgrain">—</span></div>
     <div data-hl="image">终端图片实际尺寸：<span id="ro-imgphys">—</span></div>
   </div>
   <div class="ro-hl" id="ro-hl"><span class="ro-hl-tag" id="ro-hl-tag"></span></div>
@@ -2085,8 +2086,15 @@ function drawMonitor(){
   // 当前窗口实际尺寸 = 窗口本身在设备上的物理大小（窗口 CSS 像素 × 每 CSS px 物理毫米）
   const mmPerCssPx=cssH>0&&Wmm>0 ? (Wmm/ratio)/cssH : 0;
   set('ro-disp',mmPerCssPx ? (winPxW*mmPerCssPx).toFixed(1)+'毫米×'+(winPxH*mmPerCssPx).toFixed(1)+'毫米' : '—');
+  // 当前窗口显示图片像素 = 显示图片物理尺寸 ÷ 当前设备逻辑像素尺寸（逻辑像素，与终端侧口径一致）
+  const dispLogH=grainLogical>0?dispHmm/grainLogical:0;
+  set('ro-imgpx',dispLogH>0?Math.round(dispLogH*imgRatio)+'×'+Math.round(dispLogH):'—');
   // 图片整体显示尺寸 = 整张图片在设备上的物理显示大小（按等比/等尺寸算出的 dispHmm）
   set('ro-imgall',dispWmm.toFixed(1)+'毫米×'+dispHmm.toFixed(1)+'毫米');
+  // 印刷媒介是绝对物理尺寸，无 DPR/逻辑像素概念 → 隐藏「终端图片像素」「终端设备逻辑像素尺寸」两行
+  const printMode=imMode!=='device';
+  if($('ro-impx-row'))$('ro-impx-row').hidden=printMode;
+  if($('ro-termgrain-row'))$('ro-termgrain-row').hidden=printMode;
   // 图片原像素 = 上传文件的真实像素宽高；终端图片像素 = 图片在终端设备上的应用尺寸像素
   const srcPw=parseFloat(($('im-pw').value||'')),srcPh=parseFloat(($('im-ph').value||''));
   set('ro-srcpx',(isFinite(srcPw)&&isFinite(srcPh))?Math.round(srcPw)+'×'+Math.round(srcPh):'—');
@@ -2263,18 +2271,30 @@ $('sex-sel').addEventListener('change',applySex);
 // 上传图片的真实宽高比（固有比例）：所有「像素框」与「物理尺寸框」都按此比例联动。
 // 上传后由图片真实像素覆盖；默认与 HTML 初值一致。
 let imgRatio=2880/1800;
-// 终端图片像素默认值 = 图片原像素 × 终端设备 DPR
-// 图片按 1:1 CSS 像素放置时占用的终端物理像素；物理尺寸再由「终端设备逻辑像素尺寸(毫米/逻辑像素)」换算
-// 只在设备媒介下生效（印刷媒介的应用尺寸单位是厘米等物理单位）
+// 终端图片像素默认值 = 图片原像素（不乘 DPR）
+// 物理尺寸再由「终端设备逻辑像素尺寸(毫米/像素)」换算；只在设备媒介下生效（印刷媒介用物理单位）
 function resetImSizeToSource(){
   const imDev=$('im-medium-radio')&&$('im-medium-radio').querySelector('input:checked');
   if(imDev&&imDev.value!=='device')return;
   const pw=parseFloat(($('im-pw')||{}).value),ph=parseFloat(($('im-ph')||{}).value);
-  const dpr=parseFloat(($('im-dpr')||{}).value)||1;
   if(!(pw>0&&ph>0))return;
   imgRatio=pw/ph;
-  if($('im-size-w'))$('im-size-w').value=String(Math.round(pw*dpr));
-  if($('im-size-h'))$('im-size-h').value=String(Math.round(ph*dpr));
+  if($('im-size-w'))$('im-size-w').value=String(Math.round(pw));
+  if($('im-size-h'))$('im-size-h').value=String(Math.round(ph));
+}
+// 印刷媒介：终端图片实际物理尺寸默认 = 图片原像素 ÷ 300 DPI × 25.4（毫米），再换算到当前单位
+// 这只是默认尺寸的取值方式，用户可手动改应用尺寸；印刷为绝对物理尺寸，无 DPR/逻辑像素概念
+function resetImSizeForPrint(){
+  const imDev=$('im-medium-radio')&&$('im-medium-radio').querySelector('input:checked');
+  if(imDev&&imDev.value!=='print')return;
+  const pw=parseFloat(($('im-pw')||{}).value),ph=parseFloat(($('im-ph')||{}).value);
+  if(!(pw>0&&ph>0))return;
+  const unit=($('u-im-size')||{}).value||'centimeters';
+  const f=(LEN[unit]||0.01)*1000;   // 每单位对应毫米
+  const mmPerPx=25.4/300;
+  imgRatio=pw/ph;
+  if($('im-size-w'))$('im-size-w').value=(pw*mmPerPx/f).toFixed(2);
+  if($('im-size-h'))$('im-size-h').value=(ph*mmPerPx/f).toFixed(2);
 }
 
 // 应用尺寸联动：改一边，另一边按图片固有比例 imgRatio 自动算。
@@ -2365,12 +2385,9 @@ function applyImMedium(mode){
     const pick=def||$('im-model').options[0];
     if(pick){$('im-model').value=pick.value;applyImModel(pick.value);}
   }else{
-    // 首次切到印刷：给合理的厘米尺寸默认（宽24，高按图片比例），并同步单位
+    // 切到印刷：终端图片实际尺寸默认 = 图片原像素 ÷ 300 DPI（绝对物理尺寸，无 DPR/逻辑像素概念）
     const ui=$('u-im-size');ui.value='centimeters';ui.dataset.prev='centimeters';
-    const w=parseFloat($('im-size-w').value);
-    const defW=(isFinite(w)&&w>0&&w<100)?w:24;   // 若还是像素量级则回退24cm
-    $('im-size-w').value=fmt(defW);
-    if(imgRatio>0)$('im-size-h').value=(defW/imgRatio).toFixed(1);
+    resetImSizeForPrint();
   }
   drawMonitor();
 }
@@ -2411,8 +2428,8 @@ function applyImModel(key){
   if($('im-dpr'))$('im-dpr').value=String(dpr);      // DPR 倍率随预设带入
   const imEx=$('im-dim-extra');
   if(imEx&&imEx.classList.contains('show')&&typeof imSyncWHFromDiag==='function')imSyncWHFromDiag();
-  // 应用尺寸默认 = 图片原像素 × 终端 DPR（如 480×880 @2x → 960×1760）
-  // 不再带入设备物理面板宽度，使默认值有确定依据且随终端 DPR 变化
+  // 应用尺寸默认 = 图片原像素（如 480×880 → 480×880，与 DPR 无关）
+  // 不再带入设备物理面板宽度，使默认值有确定依据
   resetImSizeToSource();
 }
 const imModel=$('im-model');
@@ -2465,12 +2482,9 @@ if(uImWh){uImWh.dataset.prev='centimeters';uImWh.addEventListener('change',e=>{
   ['im-cw','im-ch'].forEach(id=>{const v=imNum(id);if(v)$(id).value=imF1(v*LEN[ou]/LEN[nu]);});
   e.target.dataset.prev=nu;
 });}
-// DPR 变化：影响 @1x 字号与实际字号；同时终端图片像素默认 = 原图像素 × DPR，随之重置
+// DPR 变化：影响 @1x 字号与实际字号，重算两页（终端图片像素默认与原图像素一致，不随 DPR 变）
 const imDpr=$('im-dpr');
-if(imDpr)imDpr.addEventListener('change',()=>{
-  if(typeof resetImSizeToSource==='function')resetImSizeToSource();
-  if(typeof drawMonitor==='function')drawMonitor();
-});
+if(imDpr)imDpr.addEventListener('change',()=>{if(typeof drawMonitor==='function')drawMonitor();});
 // 显示设备信息卡：选择设备预设 → 载入该预设（同步示意界面与两卡字段）
 const sdModel=$('sd-model');
 if(sdModel)sdModel.addEventListener('change',e=>{
@@ -2886,8 +2900,9 @@ $('img-upload').addEventListener('change',e=>{
     if(w>0&&h>0){
       imgRatio=w/h;                       // 全局固有比例
       $('im-pw').value=w;$('im-ph').value=h;   // 隐藏数据源（供 drawMonitor 用）
-      // 应用尺寸默认 = 图片原像素 × 终端 DPR（上传新图后重置为有依据的默认值）
+      // 应用尺寸默认重置：电子媒介=原图像素×终端DPR；印刷媒介=原图像素÷300DPI
       resetImSizeToSource();
+      resetImSizeForPrint();
     }
     drawMonitor();
   };
