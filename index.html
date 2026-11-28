@@ -985,7 +985,20 @@
                 <select id="im-dpr" class="sd-inline-sel sd-dpr-sel"><option value="1">1x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2" selected>2x</option><option value="3">3x</option></select>
               </div>
             </div>
-            <div class="sc-note" style="margin-top:12px">这里只设置目标媒介本身的参数（媒介类型、设备、分辨率、物理宽高、DPR）。图片的应用尺寸与物理尺寸请在第二页「图片尺寸设置」中调整。</div>
+            <div id="im-print-fields" hidden>
+              <div class="sd-grp">
+                <div class="sd-lab">印刷精度 DPI</div>
+                <select id="im-print-dpi" class="sd-model-sel" title="印刷精度：用于把图片像素换算为默认物理尺寸">
+                  <option value="72">72 DPI</option>
+                  <option value="96">96 DPI</option>
+                  <option value="150">150 DPI</option>
+                  <option value="200">200 DPI</option>
+                  <option value="300" selected>300 DPI</option>
+                  <option value="600">600 DPI</option>
+                </select>
+              </div>
+            </div>
+            <div class="sc-note" style="margin-top:12px">这里只设置目标媒介本身的参数（媒介类型、设备、分辨率、物理宽高、DPR；印刷媒介为印刷精度 DPI）。图片的应用尺寸与物理尺寸请在第二页「图片尺寸设置」中调整。</div>
           </div>
         </div>
       </div><!-- /entry-wrap app-medium -->
@@ -2282,7 +2295,7 @@ function resetImSizeToSource(){
   if($('im-size-w'))$('im-size-w').value=String(Math.round(pw));
   if($('im-size-h'))$('im-size-h').value=String(Math.round(ph));
 }
-// 印刷媒介：终端图片实际物理尺寸默认 = 图片原像素 ÷ 300 DPI × 25.4（毫米），再换算到当前单位
+// 印刷媒介：终端图片实际物理尺寸默认 = 图片原像素 ÷ 印刷精度 DPI × 25.4（毫米），再换算到当前单位
 // 这只是默认尺寸的取值方式，用户可手动改应用尺寸；印刷为绝对物理尺寸，无 DPR/逻辑像素概念
 function resetImSizeForPrint(){
   const imDev=$('im-medium-radio')&&$('im-medium-radio').querySelector('input:checked');
@@ -2291,7 +2304,8 @@ function resetImSizeForPrint(){
   if(!(pw>0&&ph>0))return;
   const unit=($('u-im-size')||{}).value||'centimeters';
   const f=(LEN[unit]||0.01)*1000;   // 每单位对应毫米
-  const mmPerPx=25.4/300;
+  const dpi=parseFloat(($('im-print-dpi')||{}).value)||300;
+  const mmPerPx=25.4/dpi;
   imgRatio=pw/ph;
   if($('im-size-w'))$('im-size-w').value=(pw*mmPerPx/f).toFixed(2);
   if($('im-size-h'))$('im-size-h').value=(ph*mmPerPx/f).toFixed(2);
@@ -2376,6 +2390,7 @@ function applyImMedium(mode){
   // 印刷媒介：无需设备（没有 A4 下拉），只需填应用尺寸+单位；电子媒介：显示设备预设与其分辨率
   $('im-model').hidden=!dev;
   $('im-dev-fields').hidden=!dev;
+  if($('im-print-fields'))$('im-print-fields').hidden=dev;   // 印刷下显示印刷精度 DPI 选项
   $('im-derived').hidden=!dev;                 // 印刷下"物理尺寸(自动生成)"行隐藏
   $('u-im-size').hidden=dev;                    // 印刷下显示尺寸单位下拉
   if(dev){
@@ -2415,6 +2430,7 @@ function applyImModel(key){
       $('im-size-w').value=m.w;
       if(imgRatio>0)$('im-size-h').value=(m.w/imgRatio).toFixed(2);
     }
+    if(typeof drawMonitor==='function')drawMonitor();
     return;
   }
   const cw=m.c[0],ch=m.c[1],dpr=m.d||1;
@@ -2431,6 +2447,8 @@ function applyImModel(key){
   // 应用尺寸默认 = 图片原像素（如 480×880 → 480×880，与 DPR 无关）
   // 不再带入设备物理面板宽度，使默认值有确定依据
   resetImSizeToSource();
+  // 切换终端设备后必须重绘读数：终端设备逻辑像素尺寸/物理尺寸都依赖这里更新的 im-* 字段
+  if(typeof drawMonitor==='function')drawMonitor();
 }
 const imModel=$('im-model');
 if(imModel)imModel.addEventListener('change',e=>applyImModel(e.target.value));
@@ -2485,6 +2503,12 @@ if(uImWh){uImWh.dataset.prev='centimeters';uImWh.addEventListener('change',e=>{
 // DPR 变化：影响 @1x 字号与实际字号，重算两页（终端图片像素默认与原图像素一致，不随 DPR 变）
 const imDpr=$('im-dpr');
 if(imDpr)imDpr.addEventListener('change',()=>{if(typeof drawMonitor==='function')drawMonitor();});
+// 印刷精度 DPI 变化：按新精度重算终端图片实际尺寸默认（原图像素÷DPI）
+const imPrintDpi=$('im-print-dpi');
+if(imPrintDpi)imPrintDpi.addEventListener('change',()=>{
+  if(typeof resetImSizeForPrint==='function')resetImSizeForPrint();
+  if(typeof drawMonitor==='function')drawMonitor();
+});
 // 显示设备信息卡：选择设备预设 → 载入该预设（同步示意界面与两卡字段）
 const sdModel=$('sd-model');
 if(sdModel)sdModel.addEventListener('change',e=>{
